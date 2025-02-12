@@ -1,17 +1,23 @@
+________________________________________
 StartShield-STSH App
-Decentralized Insurance & Risk Management Platform
+🚀 Decentralized Insurance & Risk Management Platform
  
 ________________________________________
 📌 Overview
-StartShield-STSH is a blockchain-powered insurance and risk management platform designed to provide transparent, decentralized, and accessible insurance solutions for smallholder farmers and businesses. The platform integrates AI-driven risk assessment, smart contract automation, and a digital wallet (STSH Token) to simplify policy management, claims processing, and payouts.
+StartShield-STSH is a blockchain-powered insurance and risk management platform designed to provide transparent, decentralized, and accessible insurance solutions for smallholder farmers and businesses.
+The platform integrates:
+✅ AI-driven risk assessment
+✅ Smart contract automation
+✅ STSH Token digital wallet
+✅ Multi-platform access (Web, Mobile, USSD)
 ________________________________________
 🚀 Features
-✅ Insurance Policy Management – Buy, renew, and claim insurance seamlessly.
-✅ Digital Wallet (STSH Token) – Use tokens for premium payments and claims.
-✅ AI-Powered Claim Processing – Automated claim validation using smart contracts.
-✅ Internet Identity Integration – Secure login with DFINITY Internet Identity.
-✅ Multi-Platform Support – Available on Web, Mobile App (React Native), and USSD.
-✅ Decentralized Storage & Smart Contracts – Ensures policy integrity and transparency.
+✔ Buy & Manage Insurance – Easily purchase and renew policies.
+✔ Digital Wallet (STSH Token) – Pay premiums and receive payouts.
+✔ AI-Powered Claims Processing – Automated claim verification.
+✔ Secure Login – DFINITY Internet Identity (II) authentication.
+✔ Multi-Platform Support – Web, Mobile (React Native), and USSD.
+✔ Decentralized Storage & Smart Contracts – Ensuring data integrity.
 ________________________________________
 📱 Tech Stack
 Frontend
@@ -64,11 +70,25 @@ Endpoint	Method	Description
 /api/wallet/balance	GET	Check STSH token balance
 /api/wallet/transfer	POST	Transfer STSH tokens
 ________________________________________
-🎯 Roadmap
+📅 Roadmap
 ✔ MVP Development (Web, Mobile, USSD)
 ✔ Blockchain & Smart Contracts Integration
 ⬜ AI Risk Analysis & Claim Automation
 ⬜ Expansion to Agribusiness & MSMEs
+________________________________________
+❓ FAQs
+1. What is StartShield-STSH?
+StartShield-STSH is a decentralized insurance and risk management platform designed to provide blockchain-powered insurance solutions for farmers, MSMEs, and businesses.
+2. How does the insurance claim process work?
+•	A user submits a claim with supporting evidence (photo, report).
+•	AI verifies the claim using data (weather, farm size, crop data).
+•	If approved, a smart contract triggers an automatic payout.
+3. How do I pay for insurance premiums?
+You can pay using STSH Tokens or fiat (via Stripe, Paystack).
+4. Is my data secure?
+Yes! We use Internet Computer (ICP) Smart Contracts, IPFS, and Arweave for decentralized storage and security.
+5. What happens if my claim is rejected?
+If a claim is rejected, users receive a detailed AI-generated report explaining the decision. They can request manual review if needed.
 ________________________________________
 🤝 Contribution Guidelines
 We welcome contributions! Please follow these steps:
@@ -78,10 +98,31 @@ We welcome contributions! Please follow these steps:
 4.	Push the branch: git push origin feature-branch
 5.	Submit a pull request
 ________________________________________
+👨💻 Contributors
+Name	Role	GitHub Profile
+Wilson Wong:	Lead Developer	@wilson-wong
+
+Fredrick Nonde Jr.:	CEO; Project Lead	@freddie-nonde
+
+Costinel Malaise:	CTO; AI & Blockchain Developer	@costinel-malaise
+
+Andrea Malaise:	CFIO; AI & Blockchain Developer	@andreea-malaise
+
+Natalie Blunkett:	Front-End Developer	@natalie-blunckett
+
+Dingaani Shawa: CBGO; Branding, UX/UI Developer
+
+Willaim Nyirenda: CBEO; Blockchain Advisor
+
+Sujeet Kumar: CSOO; Blockchain Professional
+
+MIBT Team	Research & Development	@mibt-devs
+
+(Want to contribute? Open a PR and add your name here!)
+________________________________________
 📬 Contact & Support
-📧 Email: startshield@mibt-uc.com
-🌐 Website: www.mibt-uc.com/en/startshield/
+📧 Email: startshield@mibt-uc.com; startshield.stsh@gmail.com
+🌐 Website: www.mibt-uc.com/startshield-stsh.com
 🚀 Powered by MIBT & STSH Blockchain Solutions
 ________________________________________
-
-
+🌟 Star this repo if you support decentralized insurance! ⭐
