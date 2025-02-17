@@ -1,14 +1,11 @@
 import React from "react";
-// Screens
-import Login from "../screens/login";  
-import Register from "../screens/register";
-import Home from "../screens/home"
 
-const StshApp = () => {
-  return (
-    <Home/>
+// Stack
+import RootStack from "./../navigators/RootStack";
+import { NavigationContainer } from "@react-navigation/native";
+
+export default function StshApp() {
+  return(
+    <RootStack />
   );
-};
-
-export default StshApp;
-
+}

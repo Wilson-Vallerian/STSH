@@ -1,7 +1,11 @@
 import styled from "styled-components/native";
 import { View, Text, Image, TextInput, TouchableOpacity } from "react-native";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
+import { Dimensions } from "react-native";
 
+// Screen Height
+const { height } = Dimensions.get("window");
 // Status Bar
 const statusBarHeight = Constants.statusBarHeight;
 
@@ -23,8 +27,9 @@ export const Colors = {
 export const StyledContainer = styled.View`
   flex: 1;
   padding: 25px;
-  padding-top: ${statusBarHeight + 10}px;
+  padding-top: ${statusBarHeight}px;
   background-color: ${Colors.white};
+  min-height: ${height}px;
 `;
 
 export const InnerContainer = styled.View`
@@ -47,7 +52,6 @@ export const PageTitle = styled.Text`
 
   ${(props) => props.welcome && `
     margin-bottom: 5px;
-    font-weight: normal;
     `}
 `;
 
@@ -59,8 +63,9 @@ export const SubTitle = styled.Text`
   color: ${Colors.black};
 
   ${(props) => props.welcome && `
-    margin-bottom: 5px;
-    font-weight: normal;
+    font-size: 20px;
+    padding: 0px;
+    margin-bottom: 0px;
     `}
 `;
 
@@ -174,7 +179,7 @@ export const TextLinkContent = styled.Text`
 `
 
 // Welcome Screen
-export const welcomeContainer = style(InnerContainer)`
+export const WelcomeContainer = styled(InnerContainer)`
     padding: 25px;
     padding-top: 10px;
     justify-content: center;
