@@ -3,8 +3,7 @@ import {
   Colors,
   StyledContainer,
   InnerContainer,
-  LoginLogo,
-  LoginTitle,
+  PageTitle,
   SubTitle,
   FormAreaStyled,
   TextInputStyled,
@@ -50,7 +49,7 @@ function Register() {
     <StyledContainer>
       <StatusBar style="dark" />
       <InnerContainer>
-        <LoginTitle>Start Shield - STSH</LoginTitle>
+        <PageTitle>Start Shield - STSH</PageTitle>
         <SubTitle>Sign Up</SubTitle>
 
         {show && (

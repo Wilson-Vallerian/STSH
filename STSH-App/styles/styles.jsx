@@ -12,13 +12,14 @@ export const Colors = {
   darkGreen: "#295662",  // Button Color
   lightGreen: "#4eba6f",  // Button Color
   darkCharcoal: "#333",  // Text Input Box
-  black: "#000000",  // Text Color
-  white: "#fff",  // Text Color
+  black: "#000000",  // Text Color (Primary)
+  white: "#fff",  // Text Color (Secondary)
   linkColor: "#007bff",  // Link and Icon Color
   darkGrey: "#63666A",  // Line
   inputText: "#ffffff",  // Input Text Color In Box
 };
 
+// Login & Register Screens
 export const StyledContainer = styled.View`
   flex: 1;
   padding: 25px;
@@ -37,12 +38,17 @@ export const LoginLogo = styled.Image`
   height: 250px;
 `;
 
-export const LoginTitle = styled.Text`
+export const PageTitle = styled.Text`
   font-size: 30px;
   text-align: center;
   font-weight: bold;
   color: ${Colors.black};
   padding: 10px;
+
+  ${(props) => props.welcome && `
+    margin-bottom: 5px;
+    font-weight: normal;
+    `}
 `;
 
 export const SubTitle = styled.Text`
@@ -50,7 +56,12 @@ export const SubTitle = styled.Text`
   margin-bottom: 20px;
   letter-spacing: 1px;
   font-weight: bold;
-  color: ${Colors.black}; /* Fixed color */
+  color: ${Colors.black};
+
+  ${(props) => props.welcome && `
+    margin-bottom: 5px;
+    font-weight: normal;
+    `}
 `;
 
 export const FormAreaStyled = styled.View`
@@ -67,18 +78,18 @@ export const TextInputStyled = styled.TextInput`
   font-size: 16px;
   height: 55px;
   margin-top: 5px;
-  color: ${Colors.inputText}; /* Fixed input text color */
+  color: ${Colors.inputText};
 `;
 
 export const InputWrapper = styled.View`
   width: 100%;
   align-items: center;
   margin-bottom: 15px;
-  position: relative; /* Fixed overlapping issue */
+  position: relative;
 `;
 
 export const InputLabel = styled.Text`
-  color: ${Colors.darkCharcoal}; /* Fixed label color */
+  color: ${Colors.darkCharcoal};
   font-size: 13px;
   text-align: left;
   width: 100%;
@@ -160,4 +171,27 @@ export const TextLink = styled.TouchableOpacity`
 export const TextLinkContent = styled.Text`
     color: ${Colors.linkColor};
     font-size: 15px;
+`
+
+// Welcome Screen
+export const welcomeContainer = style(InnerContainer)`
+    padding: 25px;
+    padding-top: 10px;
+    justify-content: center;
+`
+
+export const Avatar = styled.Image`
+    width: 100px;
+    height: 100px;
+    margin: auto;
+    border-radius: 50px;
+    border-width: 2px;
+    button-color: ${Colors.white};
+    margin-bottom: 10px;
+    margin-top:10px;
+`
+
+export const WelcomeImage = styled.Image`
+    height: 50%;
+    min-width: 100%;
 `

@@ -4,7 +4,7 @@ import {
   StyledContainer,
   InnerContainer,
   LoginLogo,
-  LoginTitle,
+  PageTitle,
   SubTitle,
   FormAreaStyled,
   TextInputStyled,
@@ -36,7 +36,7 @@ function Login() {
           resizeMode="contain"
           source={require("./../assets/images/STSH-Logo.png")} // Placeholder Image (Replace with STSH logo)
         />
-        <LoginTitle>StartShield-STSH</LoginTitle>
+        <PageTitle>StartShield-STSH</PageTitle>
         <SubTitle>Login</SubTitle>
 
         <Formik
