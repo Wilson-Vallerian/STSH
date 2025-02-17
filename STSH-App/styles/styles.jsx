@@ -7,19 +7,23 @@ const statusBarHeight = Constants.statusBarHeight;
 
 // Colors
 export const Colors = {
-  primary: "#f5f5f5", 
-  secondary: "#333", // Text color
-  btnColor: "#007bff", // Button color
-  darkGrey: "#63666A", // Placeholder text color
-  inputText: "#ffffff", // Fixed input text color for visibility
-  green: "#00ff00",
+  grey: "#959398",  // Placeholder Text
+  red: "#dc3645",
+  darkGreen: "#295662",  // Button Color
+  lightGreen: "#4eba6f",  // Button Color
+  darkCharcoal: "#333",  // Text Input Box
+  black: "#000000",  // Text Color
+  white: "#fff",  // Text Color
+  linkColor: "#007bff",  // Link and Icon Color
+  darkGrey: "#63666A",  // Line
+  inputText: "#ffffff",  // Input Text Color In Box
 };
 
 export const StyledContainer = styled.View`
   flex: 1;
   padding: 25px;
   padding-top: ${statusBarHeight + 10}px;
-  background-color: ${Colors.primary};
+  background-color: ${Colors.white};
 `;
 
 export const InnerContainer = styled.View`
@@ -37,7 +41,7 @@ export const LoginTitle = styled.Text`
   font-size: 30px;
   text-align: center;
   font-weight: bold;
-  color: ${Colors.secondary};
+  color: ${Colors.black};
   padding: 10px;
 `;
 
@@ -46,7 +50,7 @@ export const SubTitle = styled.Text`
   margin-bottom: 20px;
   letter-spacing: 1px;
   font-weight: bold;
-  color: ${Colors.secondary}; /* Fixed color */
+  color: ${Colors.black}; /* Fixed color */
 `;
 
 export const FormAreaStyled = styled.View`
@@ -56,7 +60,7 @@ export const FormAreaStyled = styled.View`
 
 export const TextInputStyled = styled.TextInput`
   width: 100%;
-  background-color: ${Colors.secondary};
+  background-color: ${Colors.darkCharcoal};
   padding: 15px;
   padding-left: 50px;
   border-radius: 5px;
@@ -74,7 +78,7 @@ export const InputWrapper = styled.View`
 `;
 
 export const InputLabel = styled.Text`
-  color: ${Colors.secondary}; /* Fixed label color */
+  color: ${Colors.darkCharcoal}; /* Fixed label color */
   font-size: 13px;
   text-align: left;
   width: 100%;
@@ -97,7 +101,7 @@ export const EyeIcon = styled.TouchableOpacity`
 
 export const StyledButton = styled.TouchableOpacity`
   padding: 15px;
-  background-color: ${Colors.green};
+  background-color: ${Colors.darkGreen};
   justify-content: center;
   align-items: center;
   border-radius: 5px;
@@ -106,14 +110,14 @@ export const StyledButton = styled.TouchableOpacity`
   width: 100%;
 
   ${(props) => props.google == true && `
-    background-color: ${Colors.secondary};
+    background-color: ${Colors.lightGreen};
     flex-direction: row;
     justify-content: center;
     `}
 `;
 
 export const ButtonText = styled.Text`
-  color: ${Colors.primary};
+  color: ${Colors.white};
   font-size: 16px;
   font-weight: bold;
 
@@ -144,7 +148,7 @@ export const ExtraView = styled.View`
 export const ExtraText = styled.Text`
     justify-content: center;
     align-content: center;
-    color: ${Colors.secondary};
+    color: ${Colors.black};
     font-size: 15px;
 `
 
@@ -154,6 +158,6 @@ export const TextLink = styled.TouchableOpacity`
 `
 
 export const TextLinkContent = styled.Text`
-    color: ${Colors.btnColor};
+    color: ${Colors.linkColor};
     font-size: 15px;
 `

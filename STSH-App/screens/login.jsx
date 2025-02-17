@@ -34,7 +34,7 @@ function Login() {
       <InnerContainer>
         <LoginLogo
           resizeMode="contain"
-          source={require("./../assets/images/STSH-Logo.jpeg")} // Placeholder Image (Replace with STSH logo)
+          source={require("./../assets/images/STSH-Logo.png")} // Placeholder Image (Replace with STSH logo)
         />
         <LoginTitle>StartShield-STSH</LoginTitle>
         <SubTitle>Login</SubTitle>
@@ -51,7 +51,7 @@ function Login() {
                 label="Email:"
                 icon="mail"
                 placeholder="example@gmail.com"
-                placeholderTextColor={Colors.darkGrey}
+                placeholderTextColor={Colors.grey}
                 onChangeText={handleChange("email")}
                 onBlur={handleBlur("email")}
                 value={values.email}
@@ -62,7 +62,7 @@ function Login() {
                 label="Password:"
                 icon="lock"
                 placeholder="Enter your password"
-                placeholderTextColor={Colors.darkGrey}
+                placeholderTextColor={Colors.grey}
                 onChangeText={handleChange("password")}
                 onBlur={handleBlur("password")}
                 value={values.password}
@@ -81,7 +81,7 @@ function Login() {
               <Line />
 
               <StyledButton google={true} onPress={handleSubmit}>
-                <Fontisto name="google" color={Colors.primary} size={26} />
+                <Fontisto name="google" color={Colors.white} size={26} />
                 <ButtonText google={true}>Sign in with Google </ButtonText>
               </StyledButton>
 
@@ -113,7 +113,7 @@ const MyTextInput = ({
   return (
     <InputWrapper>
       <LoginIcon>
-        <Octicons name={icon} size={25} color={Colors.btnColor} />
+        <Octicons name={icon} size={25} color={Colors.linkColor} />
       </LoginIcon>
       <InputLabel>{label}</InputLabel>
       <TextInputStyled {...props} />
