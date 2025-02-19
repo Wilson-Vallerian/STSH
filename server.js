@@ -1,21 +1,35 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 
 const app = express();
 app.use(cors({ origin: "*" })); // Allow all requests
 app.use(bodyParser.json());
 
-const users = []; // Store users temporarily (Replace with DB later)
+// ✅ Connect to MongoDB (Fix for ENOTFOUND error)
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch(error => console.error("🚨 MongoDB Connection Error:", error));
 
-// Default GET route
-app.get("/", (req, res) => {
-  res.send("🚀 API is running on Render!");
+// ✅ Define User Schema
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, unique: true, required: true },
+  dateOfBirth: { type: String, required: true },
+  password: { type: String, required: true }
 });
 
-// Registration Route
-app.post("/register", (req, res) => {
+const User = mongoose.model("User", userSchema);
+
+// ✅ Default GET Route
+app.get("/", (req, res) => {
+  res.send("🚀 API is running with MongoDB!");
+});
+
+// ✅ Registration Route
+app.post("/register", async (req, res) => {
   const { name, email, dateOfBirth, password, confirmPassword } = req.body;
 
   if (!name || !email || !dateOfBirth || !password || !confirmPassword) {
@@ -26,24 +40,40 @@ app.post("/register", (req, res) => {
     return res.status(400).json({ status: "FAILED", message: "Passwords do not match" });
   }
 
-  // Simulate storing the user (Replace with DB logic)
-  const newUser = { name, email, dateOfBirth, password };
-  users.push(newUser);
+  try {
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ status: "FAILED", message: "Email already in use" });
+    }
 
-  res.json({ status: "SUCCESS", message: "User registered successfully", user: newUser });
-});
+    // Create a new user
+    const newUser = new User({ name, email, dateOfBirth, password });
+    await newUser.save();
 
-// Login Route
-app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  const user = users.find(u => u.email === email && u.password === password);
-
-  if (user) {
-    res.json({ status: "SUCCESS", message: "Login successful", user });
-  } else {
-    res.status(401).json({ status: "FAILED", message: "Invalid credentials" });
+    res.json({ status: "SUCCESS", message: "User registered successfully", user: newUser });
+  } catch (error) {
+    res.status(500).json({ status: "FAILED", message: "Registration error", error: error.message });
   }
 });
 
+// ✅ Login Route
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email, password });
+
+    if (user) {
+      res.json({ status: "SUCCESS", message: "Login successful", user });
+    } else {
+      res.status(401).json({ status: "FAILED", message: "Invalid credentials" });
+    }
+  } catch (error) {
+    res.status(500).json({ status: "FAILED", message: "Login error", error: error.message });
+  }
+});
+
+// ✅ Server Start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
