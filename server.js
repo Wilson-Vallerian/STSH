@@ -1,79 +1,87 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
 const mongoose = require("mongoose");
-const bodyParser = require("body-parser");
+const cors = require("cors");
 
 const app = express();
-app.use(cors({ origin: "*" })); // Allow all requests
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(cors());
 
-// ✅ Connect to MongoDB (Fix for ENOTFOUND error)
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch(error => console.error("🚨 MongoDB Connection Error:", error));
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI; // ✅ Ensure this is correctly set in .env
 
-// ✅ Define User Schema
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, unique: true, required: true },
-  dateOfBirth: { type: String, required: true },
-  password: { type: String, required: true }
+// ✅ Improved Database Connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    console.log("✅ Connected to MongoDB Successfully!");
+  } catch (error) {
+    console.error("❌ MongoDB Connection Error:", error.message);
+    process.exit(1); // Stop Server If Connection Fails
+  }
+};
+
+// ✅ Start Server Only After DB is Connected
+connectDB().then(() => {
+  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 });
 
-const User = mongoose.model("User", userSchema);
-
-// ✅ Default GET Route
+// ✅ Basic API Route (Check If API Works)
 app.get("/", (req, res) => {
-  res.send("🚀 API is running with MongoDB!");
+  res.send("✅ API is running...");
 });
+
+// ✅ User Schema & Model
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  age: Number,
+  password: String,
+});
+
+const User = mongoose.model("User", userSchema, "TestingDB"); // ✅ Make Sure Collection Name Matches
 
 // ✅ Registration Route
 app.post("/register", async (req, res) => {
-  const { name, email, dateOfBirth, password, confirmPassword } = req.body;
-
-  if (!name || !email || !dateOfBirth || !password || !confirmPassword) {
-    return res.status(400).json({ status: "FAILED", message: "All fields are required" });
-  }
-
-  if (password !== confirmPassword) {
-    return res.status(400).json({ status: "FAILED", message: "Passwords do not match" });
-  }
-
   try {
-    // Check if email already exists
+    const { name, email, age, password } = req.body;
+
+    // ✅ Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ status: "FAILED", message: "Email already in use" });
+      return res.status(400).json({ message: "User already exists", status: "FAILED" });
     }
 
-    // Create a new user
-    const newUser = new User({ name, email, dateOfBirth, password });
+    // ✅ Save New User
+    const newUser = new User({ name, email, age, password });
     await newUser.save();
 
-    res.json({ status: "SUCCESS", message: "User registered successfully", user: newUser });
+    res.status(201).json({ message: "User registered successfully!", status: "SUCCESS" });
   } catch (error) {
-    res.status(500).json({ status: "FAILED", message: "Registration error", error: error.message });
+    console.error("❌ Registration Error:", error);
+    res.status(500).json({ message: "Registration error", status: "FAILED", error: error.message });
   }
 });
 
 // ✅ Login Route
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    const user = await User.findOne({ email, password });
+    const { email, password } = req.body;
 
-    if (user) {
-      res.json({ status: "SUCCESS", message: "Login successful", user });
-    } else {
-      res.status(401).json({ status: "FAILED", message: "Invalid credentials" });
+    // ✅ Find user in database
+    const user = await User.findOne({ email });
+
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials", status: "FAILED" });
     }
+
+    res.json({ message: "Login successful!", status: "SUCCESS", user });
   } catch (error) {
-    res.status(500).json({ status: "FAILED", message: "Login error", error: error.message });
+    console.error("❌ Login Error:", error);
+    res.status(500).json({ message: "Login error", status: "FAILED", error: error.message });
   }
 });
-
-// ✅ Server Start
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
