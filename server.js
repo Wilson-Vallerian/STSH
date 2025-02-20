@@ -72,11 +72,16 @@ app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // ✅ Find user in database
+    // ✅ Check if user exists
     const user = await User.findOne({ email });
 
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Invalid credentials", status: "FAILED" });
+    if (!user) {
+      return res.status(401).json({ message: "User not found", status: "FAILED" });
+    }
+
+    // ✅ Compare passwords (if using plaintext)
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
     res.json({ message: "Login successful!", status: "SUCCESS", user });
