@@ -67,39 +67,15 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// // ✅ Login Route
-// app.post("/login", async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-
-//     // ✅ Find user in database
-//     const user = await User.findOne({ email });
-
-//     if (!user || user.password !== password) {
-//       return res.status(401).json({ message: "Invalid credentials", status: "FAILED" });
-//     }
-
-//     res.json({ message: "Login successful!", status: "SUCCESS", user });
-//   } catch (error) {
-//     console.error("❌ Login Error:", error);
-//     res.status(500).json({ message: "Login error", status: "FAILED", error: error.message });
-//   }
-// });
-
-const bcrypt = require("bcryptjs");
-
+// ✅ Login Route
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // ✅ Find user in database
     const user = await User.findOne({ email });
 
-    if (!user) {
-      return res.status(401).json({ message: "User not found", status: "FAILED" });
-    }
-
-    // Compare hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!user || user.password !== password) {
       return res.status(401).json({ message: "Invalid credentials", status: "FAILED" });
     }
 
