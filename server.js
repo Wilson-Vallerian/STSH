@@ -8,9 +8,9 @@ app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI; // ✅ Ensure this is correctly set in .env
+const MONGO_URI = process.env.MONGO_URI;
 
-// ✅ Improved Database Connection
+// Database Connection
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URI, {
@@ -25,17 +25,17 @@ const connectDB = async () => {
   }
 };
 
-// ✅ Start Server Only After DB is Connected
+// Start Server Only After DB is Connected
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 });
 
-// ✅ Basic API Route (Check If API Works)
+// Basic API Route (Check If API Works)
 app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
 
-// ✅ User Schema & Model
+// User Schema & Model
 const userSchema = new mongoose.Schema({
   name: String,
   email: String,
@@ -43,24 +43,24 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
-const User = mongoose.model("User", userSchema, "TestingDB"); // ✅ Make Sure Collection Name Matches
+const User = mongoose.model("User", userSchema, "Users");  // Change TestingDB to other collection
 
-// ✅ Registration Route
+// Registration Route
 app.post("/register", async (req, res) => {
   try {
     const { name, email, age, password } = req.body;
 
-    // ✅ Check if user already exists
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists", status: "FAILED" });
     }
 
-    // ✅ Create and save new user
+    // Create and save new user
     const newUser = new User({ name, email, age, password });
     await newUser.save();
 
-    // ✅ Ensure backend sends user data back
+    // Ensure backend sends user data back
     res.status(201).json({ 
       message: "User registered successfully!", 
       status: "SUCCESS", 
@@ -77,19 +77,20 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// ✅ Login Route
+
+// Login Route
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // ✅ Check if user exists
+    // Check if user exists
     const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(401).json({ message: "User not found", status: "FAILED" });
     }
 
-    // ✅ Compare passwords (if using plaintext)
+    // Compare passwords (if using plaintext)
     if (user.password !== password) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
