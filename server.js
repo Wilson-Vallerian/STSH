@@ -53,13 +53,13 @@ app.post("/register", async (req, res) => {
     const { name, email, age, dateOfBirth, password } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists", status: "FAILED" });
     }
 
     // Create and save new user
-    const newUser = new User({ name, email, age, dateOfBirth, password, stshToken: 0 });
+    const newUser = new User({ name, email: email.toLowerCase(), age, dateOfBirth, password, stshToken: 0 });
     await newUser.save();
 
     // Ensure backend sends user data back
@@ -85,7 +85,7 @@ app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(401).json({ message: "User not found", status: "FAILED" });
