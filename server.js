@@ -48,7 +48,7 @@ const User = mongoose.model("User", userSchema, "Users");  // Change TestingDB t
 // Registration Route
 app.post("/register", async (req, res) => {
   try {
-    const { name, email, age, password } = req.body;
+    const { name, email, dateOfBirth, password} = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -57,7 +57,7 @@ app.post("/register", async (req, res) => {
     }
 
     // Create and save new user
-    const newUser = new User({ name, email, age, password });
+    const newUser = new User({ name, email, dateOfBirth, password, stshToken: 0});
     await newUser.save();
 
     // Ensure backend sends user data back
