@@ -40,7 +40,9 @@ const userSchema = new mongoose.Schema({
   name: String,
   email: String,
   age: Number,
+  dateOfBirth: String,
   password: String,
+  stshToken: { type: Number, default: 0 },
 });
 
 const User = mongoose.model("User", userSchema, "Users");  // Change TestingDB to other collection
@@ -48,7 +50,7 @@ const User = mongoose.model("User", userSchema, "Users");  // Change TestingDB t
 // Registration Route
 app.post("/register", async (req, res) => {
   try {
-    const { name, email, dateOfBirth, password} = req.body;
+    const { name, email, age, dateOfBirth, password } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -57,7 +59,7 @@ app.post("/register", async (req, res) => {
     }
 
     // Create and save new user
-    const newUser = new User({ name, email, dateOfBirth, password, stshToken: 0});
+    const newUser = new User({ name, email, age, dateOfBirth, password, stshToken: 0 });
     await newUser.save();
 
     // Ensure backend sends user data back
@@ -76,7 +78,6 @@ app.post("/register", async (req, res) => {
     });
   }
 });
-
 
 // Login Route
 app.post("/login", async (req, res) => {
