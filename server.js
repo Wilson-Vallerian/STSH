@@ -43,9 +43,10 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: String,
   password: String,
   stshToken: { type: Number, default: 0 },
+  role: {type: String, default: "user"},
 });
 
-const User = mongoose.model("User", userSchema, "Users");  // Change TestingDB to other collection
+const User = mongoose.model("User", userSchema, "Users"); 
 
 // Registration Route
 app.post("/register", async (req, res) => {
@@ -59,7 +60,7 @@ app.post("/register", async (req, res) => {
     }
 
     // Create and save new user
-    const newUser = new User({ name, email: email.toLowerCase(), age, dateOfBirth, password, stshToken: 0 });
+    const newUser = new User({ name, email: email.toLowerCase(), age, dateOfBirth, password, stshToken: 0, role: "user"});
     await newUser.save();
 
     // Ensure backend sends user data back
@@ -91,7 +92,7 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "User not found", status: "FAILED" });
     }
 
-    // Compare passwords (if using plaintext)
+    // Compare passwords
     if (user.password !== password) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
