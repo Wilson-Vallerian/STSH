@@ -4,78 +4,105 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 
+// Environment variables
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Database Connection
-const connectDB = async () => {
+// Check if MONGO_URI is present
+if (!MONGO_URI) {
+  // console.error("❌ No MONGO_URI provided in .env file!");
+  process.exit(1);
+}
+
+// Connect to MongoDB
+async function connectDB() {
   try {
-    await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    console.log("✅ Connected to MongoDB Successfully!");
+    // For Mongoose 6+, no additional connection options are typically needed
+    await mongoose.connect(MONGO_URI);
+    console.log("✅ Connected to MongoDB successfully!");
   } catch (error) {
-    console.error("❌ MongoDB Connection Error:", error.message);
-    process.exit(1); // Stop Server If Connection Fails
+    // console.error("❌ MongoDB connection error:", error.message);
+    process.exit(1);
   }
-};
+}
 
-// Start Server Only After DB is Connected
+// Start server only after DB is connected
 connectDB().then(() => {
-  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+  });
 });
 
-// Basic API Route (Check If API Works)
+// Basic route to check that API is running
 app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
 
-// User Schema & Model
+// Define User Schema & Model
 const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
+  name: { type: String, required: true },
+  email: { type: String, required: true },
   age: Number,
   dateOfBirth: String,
-  password: String,
+  // In development, storing plain text password (not recommended for production)
+  password: { type: String, required: true },
   stshToken: { type: Number, default: 0 },
-  role: {type: String, default: "user"},
+  role: { type: String, default: "user" },
 });
 
-const User = mongoose.model("User", userSchema, "Users"); 
+const User = mongoose.model("User", userSchema, "Users");
 
 // Registration Route
 app.post("/register", async (req, res) => {
   try {
-    const { name, email, age, dateOfBirth, password } = req.body;
+    let { name, email, age, dateOfBirth, password } = req.body;
+
+    // Basic validation
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        message: "Missing required fields: name, email, password",
+        status: "FAILED",
+      });
+    }
+
+    email = email.toLowerCase(); // standardize email
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "User already exists", status: "FAILED" });
     }
 
     // Create and save new user
-    const newUser = new User({ name, email: email.toLowerCase(), age, dateOfBirth, password, stshToken: 0, role: "user"});
+    const newUser = new User({
+      name,
+      email,
+      age,
+      dateOfBirth,
+      password,
+      stshToken: 0,
+      role: "user",
+    });
     await newUser.save();
 
-    // Ensure backend sends user data back
-    res.status(201).json({ 
-      message: "User registered successfully!", 
-      status: "SUCCESS", 
-      user: newUser 
+    res.status(201).json({
+      message: "User registered successfully!",
+      status: "SUCCESS",
+      user: newUser,
     });
-
   } catch (error) {
-    console.error("❌ Registration Error:", error);
-    res.status(500).json({ 
-      message: "Registration error", 
-      status: "FAILED", 
-      error: error.message 
+    // console.error("❌ Registration Error:", error);
+    res.status(500).json({
+      message: "Registration error",
+      status: "FAILED",
+      error: error.message,
     });
   }
 });
@@ -83,23 +110,77 @@ app.post("/register", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required", status: "FAILED" });
+    }
+
+    email = email.toLowerCase();
 
     // Check if user exists
-    const user = await User.findOne({ email: email.toLowerCase() });
-
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
-    // Compare passwords
+    // Compare plain-text passwords (development only)
     if (user.password !== password) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    res.json({ message: "Login successful!", status: "SUCCESS", user });
+    res.json({
+      message: "Login successful!",
+      status: "SUCCESS",
+      user,
+    });
   } catch (error) {
-    console.error("❌ Login Error:", error);
-    res.status(500).json({ message: "Login error", status: "FAILED", error: error.message });
+    // console.error("❌ Login Error:", error);
+    res.status(500).json({
+      message: "Login error",
+      status: "FAILED",
+      error: error.message,
+    });
+  }
+});
+
+// Update User Name
+app.put("/updateName", async (req, res) => {
+  try {
+    const { userId, newName } = req.body;
+    if (!userId || !newName) {
+      return res.status(400).json({
+        message: "Missing userId or newName",
+        status: "FAILED",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        status: "FAILED",
+      });
+    }
+
+    user.name = newName;
+    await user.save();
+
+    res.json({
+      message: "Name updated successfully",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error: " + error.message,
+      status: "FAILED",
+    });
   }
 });
