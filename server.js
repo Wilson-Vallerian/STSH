@@ -22,7 +22,6 @@ if (!MONGO_URI) {
 // Connect to MongoDB
 async function connectDB() {
   try {
-    // For Mongoose 6+, no additional connection options are typically needed
     await mongoose.connect(MONGO_URI);
     console.log("✅ Connected to MongoDB successfully!");
   } catch (error) {
@@ -128,7 +127,7 @@ app.post("/login", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    // Compare plain-text passwords (development only)
+    // Compare plain-text passwords
     if (user.password !== password) {
       return res
         .status(401)
@@ -185,6 +184,7 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
+// Update Password
 app.put("/updatePassword", async (req, res) => {
   try {
     const { userId, currentPassword, newPassword } = req.body;
@@ -206,7 +206,7 @@ app.put("/updatePassword", async (req, res) => {
       });
     }
 
-    // Compare the user’s current password (plain text in dev)
+    // Compare the user’s current password
     if (user.password !== currentPassword) {
       return res.status(401).json({
         message: "Incorrect current password",
@@ -215,7 +215,7 @@ app.put("/updatePassword", async (req, res) => {
     }
 
     // If the current password matches, update to new password
-    user.password = newPassword; // In production, hash this!
+    user.password = newPassword;
     await user.save();
 
     // Respond with SUCCESS
@@ -229,5 +229,56 @@ app.put("/updatePassword", async (req, res) => {
       message: "Server error: " + error.message,
       status: "FAILED",
     });
+  }
+});
+
+// Get User ID
+app.get("/user/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User ID not found", status: "FAILED" });
+    }
+    res.json({ stshToken: user.stshToken });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// Handle Transfer STSH Token
+app.post("/transfer", async (req, res) => {
+  const { senderId, recipientId, amount } = req.body;
+
+  if (!senderId || !recipientId || !amount || amount <= 0) {
+    return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+  }
+
+  try {
+    const sender = await User.findById(senderId);
+    const recipient = await User.findById(recipientId);
+
+    if (!sender) return res.status(404).json({ message: "Sender not found", status: "FAILED" });
+    if (!recipient) return res.status(404).json({ message: "Recipient not found", status: "FAILED" });
+
+    if (sender.stshToken < amount) {
+      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+    }
+
+    // Update balances
+    sender.stshToken -= amount;
+    recipient.stshToken += amount;
+
+    await sender.save();
+    await recipient.save();
+
+    res.json({
+      message: `Transferred ${amount} STSH Token to ${recipientId}`,
+      senderBalance: sender.stshToken,
+      recipientBalance: recipient.stshToken,
+      status: "SUCCESS",
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
