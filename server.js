@@ -233,13 +233,17 @@ app.put("/updatePassword", async (req, res) => {
 });
 
 // Get User ID
+// Get User Details by ID
 app.get("/user/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: "User ID not found", status: "FAILED" });
     }
-    res.json({ stshToken: user.stshToken });
+    res.json({
+      name: user.name,
+      stshToken: user.stshToken,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -247,9 +251,9 @@ app.get("/user/:id", async (req, res) => {
 
 // Handle Transfer STSH Token
 app.post("/transfer", async (req, res) => {
-  const { senderId, recipientId, amount } = req.body;
+  const { senderId, recipientId, amount, password } = req.body;
 
-  if (!senderId || !recipientId || !amount || amount <= 0) {
+  if (!senderId || !recipientId || !amount || amount <= 0 || !password) {
     return res.status(400).json({ message: "Invalid input", status: "FAILED" });
   }
 
@@ -260,6 +264,12 @@ app.post("/transfer", async (req, res) => {
     if (!sender) return res.status(404).json({ message: "Sender not found", status: "FAILED" });
     if (!recipient) return res.status(404).json({ message: "Recipient not found", status: "FAILED" });
 
+    // Verify sender's password (for security)
+    if (sender.password !== password) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }
+
+    // Check sender's balance
     if (sender.stshToken < amount) {
       return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
     }
@@ -272,7 +282,7 @@ app.post("/transfer", async (req, res) => {
     await recipient.save();
 
     res.json({
-      message: `Transferred ${amount} STSH Token to ${recipientId}`,
+      message: `Transferred ${amount} STSH Token to ${recipient.name} (${recipientId})`,
       senderBalance: sender.stshToken,
       recipientBalance: recipient.stshToken,
       status: "SUCCESS",
