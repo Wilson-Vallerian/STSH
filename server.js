@@ -212,13 +212,15 @@ app.get("/user/:id", async (req, res) => {
 // ==========================
 app.get("/transactions/:userId", async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).populate("transactions");
+    const userId = req.params.userId;
+    const transactions = await Transaction.find({
+      $or: [{ senderId: userId }, { recipientId: userId }],
+    })
+      .populate("senderId", "name")
+      .populate("recipientId", "name")
+      .sort({ timestamp: -1 });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
-
-    res.json({ transactions: user.transactions });
+    res.json({ transactions });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
