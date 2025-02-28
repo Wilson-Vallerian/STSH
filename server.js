@@ -75,7 +75,7 @@ app.post("/register", async (req, res) => {
       age,
       dateOfBirth,
       password,
-      stshToken: 0,
+      stshToken: 5,
       role: "user",
     });
     await newUser.save();
