@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-
+const fs = require("fs");
 // Import Models
 let multer;
 try {
@@ -151,23 +151,26 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
-// Update Profile Picture
-// Ensure the "uploads" directory exists
+// ==========================
+// Profile Picture Upload
+// ==========================
 const UPLOADS_FOLDER = path.join(__dirname, "uploads");
+
+// Ensure the "uploads" directory exists
 if (!fs.existsSync(UPLOADS_FOLDER)) {
-    fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
+  fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
 }
+
 // Configure Multer Storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); // Ensure this directory exists
+    cb(null, UPLOADS_FOLDER);
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 
-// Multer File Filter (Only Images Allowed)
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
   if (!allowedTypes.includes(file.mimetype)) {
@@ -176,44 +179,27 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
-// Initialize Upload Middleware
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ storage, fileFilter });
 
 app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
   try {
     const { userId } = req.body;
+    if (!userId) return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
 
-    // Validate userId
-    if (!userId) {
-      return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
-    }
+    if (!req.file) return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
 
-    // Ensure a file was uploaded
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
-    }
-
-    // Construct the file URL dynamically
     const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-
-    // Update User Profile Picture in Database
     const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
 
-    res.json({
-      message: "Profile picture updated successfully!",
-      status: "SUCCESS",
-      updatedUser: user,
-    });
+    res.json({ message: "Profile picture updated successfully!", status: "SUCCESS", updatedUser: user });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// Serve the uploads directory as static (to access images via URL)
+// Serve static uploads
 app.use("/uploads", express.static(UPLOADS_FOLDER));
 
 // ==========================
