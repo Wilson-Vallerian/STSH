@@ -157,11 +157,10 @@ const UPLOADS_FOLDER = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOADS_FOLDER)) {
     fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
 }
-
 // Configure Multer Storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, UPLOADS_FOLDER); // Use UPLOADS_FOLDER instead of hardcoded string
+    cb(null, "uploads/"); // Ensure this directory exists
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -178,7 +177,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Initialize Upload Middleware
-const upload = multer({ storage, fileFilter });
+const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
   try {
