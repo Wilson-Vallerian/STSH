@@ -3,7 +3,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const fs = require("fs");
-// Import Models
 let multer;
 try {
   multer = require("multer");
@@ -14,7 +13,6 @@ try {
 const path = require("path");
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
-
 const app = express();
 
 // Middleware
@@ -151,6 +149,7 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
+
 // ==========================
 // Profile Picture Upload
 // ==========================
@@ -171,6 +170,7 @@ const storage = multer.diskStorage({
   },
 });
 
+// File Filter (Allow only images)
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
   if (!allowedTypes.includes(file.mimetype)) {
@@ -181,26 +181,45 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter });
 
+// Profile Picture Upload API
 app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
   try {
     const { userId } = req.body;
-    if (!userId) return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
+    
+    // Validate user ID
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
+    }
 
-    if (!req.file) return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
+    // Ensure a file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
+    }
 
+    // Construct the file URL dynamically
     const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    // Update user profile picture in the database
     const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
 
-    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
 
-    res.json({ message: "Profile picture updated successfully!", status: "SUCCESS", updatedUser: user });
+    res.json({
+      message: "Profile picture updated successfully!",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
   } catch (error) {
+    console.error("Profile picture update error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// Serve static uploads
+// Serve the "uploads" folder statically to access images via URL
 app.use("/uploads", express.static(UPLOADS_FOLDER));
+module.exports = app;
 
 // ==========================
 // Transfer STSH Tokens
