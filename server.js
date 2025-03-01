@@ -152,10 +152,16 @@ app.put("/updateName", async (req, res) => {
 });
 
 // Update Profile Picture
+// Ensure the "uploads" directory exists
+const UPLOADS_FOLDER = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOADS_FOLDER)) {
+    fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
+}
+
 // Configure Multer Storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); // Ensure this directory exists
+    cb(null, UPLOADS_FOLDER); // Use UPLOADS_FOLDER instead of hardcoded string
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -172,7 +178,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Initialize Upload Middleware
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ storage, fileFilter });
 
 app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
   try {
@@ -207,6 +213,9 @@ app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, re
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+// Serve the uploads directory as static (to access images via URL)
+app.use("/uploads", express.static(UPLOADS_FOLDER));
 
 // ==========================
 // Transfer STSH Tokens
