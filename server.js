@@ -193,6 +193,23 @@ app.post("/transfer", async (req, res) => {
   }
 });
 
+// Get User by Email
+app.get("/user/email/:email", async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+    res.json({
+      _id: user._id,
+      name: user.name,
+      stshToken: user.stshToken
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 // ==========================
 // Fetch User Details
 // ==========================
