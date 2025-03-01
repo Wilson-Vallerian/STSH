@@ -4,7 +4,13 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 
 // Import Models
-const multer = require("multer");
+let multer;
+try {
+  multer = require("multer");
+} catch (error) {
+  console.error("⚠️ Multer module not found. Install it using 'npm install multer'");
+  process.exit(1);
+}
 const path = require("path");
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
