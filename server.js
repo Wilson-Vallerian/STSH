@@ -143,6 +143,27 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
+app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    res.json({
+      message: "Profile picture updated successfully!",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 // ==========================
 // Transfer STSH Tokens
 // ==========================
