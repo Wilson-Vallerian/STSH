@@ -2,17 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const fs = require("fs");
-let multer;
-try {
-  multer = require("multer");
-} catch (error) {
-  console.error("⚠️ Multer module not found. Install it using 'npm install multer'");
-  process.exit(1);
-}
+const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
+
+// Import Models
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
+
 const app = express();
 
 // Middleware
@@ -149,78 +146,6 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
-
-// ==========================
-// Profile Picture Upload
-// ==========================
-const UPLOADS_FOLDER = path.join(__dirname, "uploads");
-
-// Ensure the "uploads" directory exists
-if (!fs.existsSync(UPLOADS_FOLDER)) {
-  fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
-}
-
-// Configure Multer Storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOADS_FOLDER);
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
-
-// File Filter (Allow only images)
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-  if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error("Only .jpeg, .jpg, and .png files are allowed!"), false);
-  }
-  cb(null, true);
-};
-
-const upload = multer({ storage, fileFilter });
-
-// Profile Picture Upload API
-app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
-  try {
-    const { userId } = req.body;
-    
-    // Validate user ID
-    if (!userId) {
-      return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
-    }
-
-    // Ensure a file was uploaded
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
-    }
-
-    // Construct the file URL dynamically
-    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-
-    // Update user profile picture in the database
-    const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
-
-    res.json({
-      message: "Profile picture updated successfully!",
-      status: "SUCCESS",
-      updatedUser: user,
-    });
-  } catch (error) {
-    console.error("Profile picture update error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// Serve the "uploads" folder statically to access images via URL
-app.use("/uploads", express.static(UPLOADS_FOLDER));
-module.exports = app;
-
 // ==========================
 // Transfer STSH Tokens
 // ==========================
@@ -271,23 +196,6 @@ app.post("/transfer", async (req, res) => {
   }
 });
 
-// Get User by Email
-app.get("/user/email/:email", async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email.toLowerCase() });
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
-    res.json({
-      _id: user._id,
-      name: user.name,
-      stshToken: user.stshToken
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
 // ==========================
 // Fetch User Details
 // ==========================
@@ -316,6 +224,62 @@ app.get("/transactions/:userId", async (req, res) => {
       .sort({ timestamp: -1 });
 
     res.json({ transactions });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+
+// ==========================
+// Fetch & Update Profile Picture
+// ==========================
+// Define storage for images
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = "./uploads";
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `profile_${req.body.userId}${path.extname(file.originalname)}`);
+  },
+});
+
+// Upload middleware
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === ".jpg" || ext === ".jpeg" || ext === ".png") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .jpg, .jpeg, .png files are allowed!"), false);
+    }
+  },
+});
+
+app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required", status: "FAILED" });
+    }
+
+    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    res.json({
+      message: "Profile picture updated successfully!",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
