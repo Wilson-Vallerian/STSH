@@ -3,13 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const fs = require("fs");
-let multer;
-try {
-  multer = require("multer");
-} catch (error) {
-  console.error("⚠️ Multer module not found. Install it using 'npm install multer'");
-  process.exit(1);
-}
+const multer = require("multer");
 const path = require("path");
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
@@ -155,12 +149,10 @@ app.put("/updateName", async (req, res) => {
 // ==========================
 const UPLOADS_FOLDER = path.join(__dirname, "uploads");
 
-// Ensure the "uploads" directory exists
 if (!fs.existsSync(UPLOADS_FOLDER)) {
   fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
 }
 
-// Configure Multer Storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, UPLOADS_FOLDER);
@@ -185,10 +177,16 @@ const upload = multer({ storage, fileFilter });
 app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
   try {
     const { userId } = req.body;
-    
+
     // Validate user ID
     if (!userId) {
       return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
+    }
+
+    // Find the user first
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
     // Ensure a file was uploaded
@@ -200,11 +198,8 @@ app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, re
     const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
 
     // Update user profile picture in the database
-    const user = await User.findByIdAndUpdate(userId, { photoUrl: fileUrl }, { new: true });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
+    user.photoUrl = fileUrl;
+    await user.save();
 
     res.json({
       message: "Profile picture updated successfully!",
