@@ -7,8 +7,8 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: String,
   password: { type: String, required: true },
   stshToken: { type: Number, default: 0 },
+  loan: { type: Number, default: 0 }, 
   role: { type: String, default: "user" },
-  photoUrl: { type: String, default: "" },
   
   // Transaction History (Reference to Transactions)
   transactions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Transaction" }]
