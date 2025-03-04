@@ -321,42 +321,47 @@ app.get("/transactions/:userId", async (req, res) => {
 // ==========================
 app.post("/applyLoan", async (req, res) => {
   try {
-    console.log("Loan request received:", req.body);
+    console.log("🔵 Loan request received:", req.body);
 
     const { userId, amount, password } = req.body;
 
     if (!userId || !amount || amount <= 0 || !password) {
-      console.log("Validation failed: Missing fields or invalid amount.");
+      console.log("❌ Validation failed: Missing fields or invalid amount.");
       return res.status(400).json({ message: "Invalid input", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      console.log("User not found");
+      console.log("❌ User not found in DB.");
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== password) {
-      console.log("Incorrect password");
+      console.log("❌ Incorrect password for user:", userId);
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    // Grant loan
+    console.log("✅ User authenticated. Granting loan...");
+
+    // Update the user's balance by adding the loan amount
     user.stshToken += parseInt(amount);
 
     // Save loan transaction
     const loanTransaction = new Transaction({
-      senderId: "LOAN_SYSTEM",
+      senderId: "LOAN_SYSTEM",  // System-generated loan
       recipientId: userId,
       amount: parseInt(amount),
       type: "loan",
     });
 
+    console.log("🟡 Saving transaction...");
     await loanTransaction.save();
+
+    // Link transaction to user
     user.transactions.push(loanTransaction._id);
     await user.save();
 
-    console.log(`Loan of ${amount} STSH granted to ${userId}`);
+    console.log(`✅ Loan of ${amount} STSH granted to ${userId}`);
 
     res.json({
       message: `Loan of ${amount} STSH granted successfully!`,
@@ -364,8 +369,7 @@ app.post("/applyLoan", async (req, res) => {
       status: "SUCCESS",
     });
   } catch (error) {
-    console.error("Loan application error:", error);
+    console.error("🔥 Loan application error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
-
