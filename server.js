@@ -162,7 +162,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// File Filter (Allow only images)
+// Filter File (Allow only images)
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
   if (!allowedTypes.includes(file.mimetype)) {
@@ -315,3 +315,52 @@ app.get("/transactions/:userId", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+// ==========================
+// Post Loan Details
+// ==========================
+app.post("/applyLoan", async (req, res) => {
+  const { userId, amount, password } = req.body;
+
+  if (!userId || !amount || amount <= 0 || !password) {
+    return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+  }
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }
+
+    // Update the user's balance by adding the loan amount
+    user.stshToken += parseInt(amount);
+
+    // Save loan transaction
+    const loanTransaction = new Transaction({
+      senderId: "LOAN_SYSTEM",
+      recipientId: userId,
+      amount: parseInt(amount),
+      type: "loan",
+    });
+
+    await loanTransaction.save();
+
+    // Link transaction to user
+    user.transactions.push(loanTransaction._id);
+    await user.save();
+
+    res.json({
+      message: `Loan of ${amount} STSH Token granted successfully!`,
+      updatedBalance: user.stshToken,
+      status: "SUCCESS",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
