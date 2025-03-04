@@ -346,10 +346,13 @@ app.post("/applyLoan", async (req, res) => {
     // Update the user's balance by adding the loan amount
     user.stshToken += parseInt(amount);
 
+    // Generate a system ObjectId to represent the loan provider
+    const systemLoanId = new mongoose.Types.ObjectId(); // Generates a random ObjectId
+
     // Save loan transaction
     const loanTransaction = new Transaction({
-      senderId: "LOAN_SYSTEM",  // System-generated loan
-      recipientId: userId,
+      senderId: systemLoanId, // Use a valid ObjectId instead of "LOAN_SYSTEM"
+      recipientId: new mongoose.Types.ObjectId(userId), // Ensure recipientId is valid
       amount: parseInt(amount),
       type: "loan",
     });
