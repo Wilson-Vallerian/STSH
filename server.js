@@ -341,34 +341,19 @@ app.post("/applyLoan", async (req, res) => {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    console.log("✅ User authenticated. Granting loan...");
+    console.log("✅ User authenticated. Applying loan...");
 
-    // Update the user's balance by adding the loan amount
-    user.stshToken += parseInt(amount);
+    // Increase the user's loan amount instead of STSH Token
+    user.loan += parseInt(amount);
 
-    // Generate a system ObjectId to represent the loan provider
-    const systemLoanId = new mongoose.Types.ObjectId(); // Generates a random ObjectId
-
-    // Save loan transaction
-    const loanTransaction = new Transaction({
-      senderId: systemLoanId, // Use a valid ObjectId instead of "LOAN_SYSTEM"
-      recipientId: new mongoose.Types.ObjectId(userId), // Ensure recipientId is valid
-      amount: parseInt(amount),
-      type: "loan",
-    });
-
-    console.log("🟡 Saving transaction...");
-    await loanTransaction.save();
-
-    // Link transaction to user
-    user.transactions.push(loanTransaction._id);
+    // Save the updated user details
     await user.save();
 
-    console.log(`✅ Loan of ${amount} STSH granted to ${userId}`);
+    console.log(`✅ Loan of ${amount} STSH applied to ${userId}`);
 
     res.json({
-      message: `Loan of ${amount} STSH granted successfully!`,
-      updatedBalance: user.stshToken,
+      message: `Loan of ${amount} STSH applied successfully!`,
+      loanAmount: user.loan,
       status: "SUCCESS",
     });
   } catch (error) {
