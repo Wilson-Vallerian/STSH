@@ -327,12 +327,12 @@ app.get("/user/:id", async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User ID not found", status: "FAILED" });
     }
-
     res.json({
       name: user.name,
       stshToken: user.stshToken,
       loan: user.loan,
       totalToken: user.totalToken,
+      role: user.role,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
