@@ -324,9 +324,16 @@ app.get("/user/email/:email", async (req, res) => {
 app.get("/user/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: "User ID not found", status: "FAILED" });
+    if (!user) {
+      return res.status(404).json({ message: "User ID not found", status: "FAILED" });
+    }
 
-    res.json({ name: user.name, stshToken: user.stshToken });
+    res.json({
+      name: user.name,
+      stshToken: user.stshToken,
+      loan: user.loan,
+      totalToken: user.totalToken,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
