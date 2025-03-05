@@ -143,6 +143,35 @@ app.put("/updateName", async (req, res) => {
   }
 });
 
+// ==========================
+// Update User Password
+// ==========================
+app.put("/updatePassword", async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Missing required fields", status: "FAILED" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    if (user.password !== currentPassword) {
+      return res.status(401).json({ message: "Incorrect current password", status: "FAILED" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully!", status: "SUCCESS", updatedUser: user });
+  } catch (error) {
+    console.error("Password update error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
 // ==========================
 // Profile Picture Upload
@@ -178,33 +207,35 @@ app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, re
   try {
     const { userId } = req.body;
 
-    // Validate user ID
     if (!userId) {
       return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
     }
 
-    // Find the user first
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    // Ensure a file was uploaded
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
     }
 
-    // Construct the file URL dynamically
+    // Construct the absolute file URL
     const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
 
-    // Update user profile picture in the database
+    // Update the user's profile picture in the database
     user.photoUrl = fileUrl;
     await user.save();
 
     res.json({
       message: "Profile picture updated successfully!",
       status: "SUCCESS",
-      updatedUser: user,
+      updatedUser: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        photoUrl: fileUrl,
+      },
     });
   } catch (error) {
     console.error("Profile picture update error:", error);
