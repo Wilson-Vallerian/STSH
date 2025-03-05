@@ -76,6 +76,8 @@ app.post("/register", async (req, res) => {
       dateOfBirth,
       password,
       stshToken: 5,
+      loan: 0,
+      totalToken: 5,
       role: "user",
     });
     await newUser.save();
@@ -290,6 +292,8 @@ app.post("/transfer", async (req, res) => {
       message: `Transferred ${amount} STSH Token to ${recipient.name} (${recipientId})`,
       senderBalance: sender.stshToken,
       recipientBalance: recipient.stshToken,
+      senderTotalToken: sender.totalToken,
+      recipientTotalToken: recipient.totalToken,
       status: "SUCCESS",
     });
   } catch (error) {
@@ -374,10 +378,10 @@ app.post("/applyLoan", async (req, res) => {
 
     console.log("✅ User authenticated. Applying loan...");
 
-    // Increase the user's loan amount instead of STSH Token
     user.loan += parseInt(amount);
 
-    // Save the updated user details
+    user.totalToken = user.stshToken + user.loan;
+
     await user.save();
 
     console.log(`✅ Loan of ${amount} STSH applied to ${userId}`);
@@ -385,6 +389,7 @@ app.post("/applyLoan", async (req, res) => {
     res.json({
       message: `Loan of ${amount} STSH applied successfully!`,
       loanAmount: user.loan,
+      totalToken: user.totalToken,
       status: "SUCCESS",
     });
   } catch (error) {
