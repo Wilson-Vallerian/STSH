@@ -8,6 +8,7 @@ const path = require("path");
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
 const app = express();
+const Loan = require("./models/Loan"); 
 
 // Middleware
 app.use(express.json());
@@ -76,7 +77,7 @@ app.post("/register", async (req, res) => {
       dateOfBirth,
       password,
       stshToken: 5,
-      loan: 0,
+      // loan: 0,
       totalToken: 5,
       role: "user",
     });
@@ -328,12 +329,13 @@ app.get("/user/:id", async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User ID not found", status: "FAILED" });
     }
+    const loan = await Loan.findOne({ userId: req.params.id, status: "debt" });
     res.json({
       name: user.name,
       stshToken: user.stshToken,
       email: user.email,
       _id: user._id,
-      loan: user.loan,
+      // loan: user.loan,
       totalToken: user.totalToken,
       role: user.role,
     });
@@ -364,46 +366,170 @@ app.get("/transactions/:userId", async (req, res) => {
 // ==========================
 // Post Loan Details
 // ==========================
+// app.post("/applyLoan", async (req, res) => {
+//   try {
+//     console.log("🔵 Loan request received:", req.body);
+
+//     const { userId, amount, password } = req.body;
+
+//     if (!userId || !amount || amount <= 0 || !password) {
+//       console.log("❌ Validation failed: Missing fields or invalid amount.");
+//       return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+//     }
+
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       console.log("❌ User not found in DB.");
+//       return res.status(404).json({ message: "User not found", status: "FAILED" });
+//     }
+
+//     if (user.password !== password) {
+//       console.log("❌ Incorrect password for user:", userId);
+//       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+//     }
+
+//     console.log("✅ User authenticated. Applying loan...");
+
+//     user.loan += parseInt(amount);
+
+//     user.totalToken = user.stshToken + user.loan;
+
+//     await user.save();
+
+//     console.log(`✅ Loan of ${amount} STSH applied to ${userId}`);
+
+//     res.json({
+//       message: `Loan of ${amount} STSH applied successfully!`,
+//       loanAmount: user.loan,
+//       totalToken: user.totalToken,
+//       status: "SUCCESS",
+//     });
+//   } catch (error) {
+//     console.error("🔥 Loan application error:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// });
 app.post("/applyLoan", async (req, res) => {
   try {
-    console.log("🔵 Loan request received:", req.body);
-
     const { userId, amount, password } = req.body;
 
     if (!userId || !amount || amount <= 0 || !password) {
-      console.log("❌ Validation failed: Missing fields or invalid amount.");
       return res.status(400).json({ message: "Invalid input", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      console.log("❌ User not found in DB.");
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== password) {
-      console.log("❌ Incorrect password for user:", userId);
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    console.log("✅ User authenticated. Applying loan...");
+    // Check if user already has an active loan
+    const existingLoan = await Loan.findOne({ userId, status: "debt" });
+    if (existingLoan) {
+      return res.status(400).json({ message: "You already have an active loan", status: "FAILED" });
+    }
 
-    user.loan += parseInt(amount);
+    // Create a new loan entry
+    const newLoan = new Loan({
+      userId,
+      email: user.email,
+      amount,
+      status: "debt", // Default status is 'debt'
+      approval: null, // Pending approval
+    });
 
-    user.totalToken = user.stshToken + user.loan;
-
-    await user.save();
-
-    console.log(`✅ Loan of ${amount} STSH applied to ${userId}`);
+    await newLoan.save();
 
     res.json({
       message: `Loan of ${amount} STSH applied successfully!`,
-      loanAmount: user.loan,
-      totalToken: user.totalToken,
-      status: "SUCCESS",
+      status: "PENDING",
+      loanDetails: newLoan,
     });
   } catch (error) {
-    console.error("🔥 Loan application error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+app.put("/approveLoan/:loanId", async (req, res) => {
+  try {
+    const { loanId } = req.params;
+    const { approval } = req.body; // Expect true (approve) or false (reject)
+
+    if (approval === undefined) {
+      return res.status(400).json({ message: "Approval status is required", status: "FAILED" });
+    }
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
+    }
+
+    loan.approval = approval;
+
+    if (approval) {
+      loan.status = "debt"; // Loan is approved and active
+    } else {
+      loan.status = "paid"; // Rejected, set status to "paid" to mark it as closed
+    }
+
+    await loan.save();
+
+    res.json({
+      message: `Loan ${approval ? "approved" : "rejected"} successfully`,
+      status: "SUCCESS",
+      loan,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+app.put("/repayLoan/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: "Invalid amount", status: "FAILED" });
+    }
+
+    const loan = await Loan.findOne({ userId, status: "debt" });
+
+    if (!loan) {
+      return res.status(400).json({ message: "No active loan found", status: "FAILED" });
+    }
+
+    if (amount >= loan.amount) {
+      loan.status = "paid"; // Loan fully repaid
+      loan.amount = 0;
+    } else {
+      loan.amount -= amount; // Partial repayment
+    }
+
+    await loan.save();
+
+    res.json({
+      message: "Loan repayment successful",
+      status: "SUCCESS",
+      remainingDebt: loan.amount,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+app.get("/loan/:userId", async (req, res) => {
+  try {
+    const loan = await Loan.findOne({ userId: req.params.userId });
+
+    if (!loan) {
+      return res.status(200).json({ message: "No active loan found.", status: "NOT_FOUND", loan: null });
+    }
+
+    res.json({ status: "SUCCESS", loan });
+  } catch (error) {
+    console.error("Loan API Error:", error.message);
+    res.status(500).json({ message: "Internal server error", status: "FAILED", error: error.message });
+  }
+});
+
