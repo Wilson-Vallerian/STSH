@@ -330,6 +330,7 @@ app.get("/user/:id", async (req, res) => {
     res.json({
       name: user.name,
       stshToken: user.stshToken,
+      email: user.email,
       loan: user.loan,
       totalToken: user.totalToken,
       role: user.role,
