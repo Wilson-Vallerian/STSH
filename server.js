@@ -311,6 +311,7 @@ app.get("/user/email/:email", async (req, res) => {
     res.json({
       _id: user._id,
       name: user.name,
+      email: user.email,
       stshToken: user.stshToken
     });
   } catch (error) {
@@ -331,6 +332,7 @@ app.get("/user/:id", async (req, res) => {
       name: user.name,
       stshToken: user.stshToken,
       email: user.email,
+      _id: user._id,
       loan: user.loan,
       totalToken: user.totalToken,
       role: user.role,
