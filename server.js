@@ -413,32 +413,41 @@ app.post("/applyLoan", async (req, res) => {
   try {
     const { userId, amount, password } = req.body;
 
-    if (!userId || !amount || amount <= 0 || !password) {
-      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+    // Validate inputs
+    if (!userId || !amount || amount <= 0 || isNaN(amount) || !password) {
+      return res.status(400).json({ message: "Invalid loan request. Please check your inputs.", status: "FAILED" });
     }
 
+    // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
+    // Validate Password
     if (user.password !== password) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    // Check if user already has an active loan
+    // Check if user already has a pending or active loan
     const existingLoan = await Loan.findOne({ userId, status: "debt" });
     if (existingLoan) {
-      return res.status(400).json({ message: "You already have an active loan", status: "FAILED" });
+      return res.status(400).json({ message: "You already have an active loan.", status: "FAILED" });
+    }
+
+    const pendingLoan = await Loan.findOne({ userId, approval: null });
+    if (pendingLoan) {
+      return res.status(400).json({ message: "You already have a pending loan application.", status: "FAILED" });
     }
 
     // Create a new loan entry
     const newLoan = new Loan({
       userId,
       email: user.email,
-      amount,
+      amount: parseFloat(amount),
       status: "debt", // Default status is 'debt'
       approval: null, // Pending approval
+      createdAt: new Date(),
     });
 
     await newLoan.save();
@@ -449,9 +458,11 @@ app.post("/applyLoan", async (req, res) => {
       loanDetails: newLoan,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("🔥 Loan Application Error:", error.message);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
 app.put("/approveLoan/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
@@ -523,13 +534,14 @@ app.get("/loan/:userId", async (req, res) => {
     const loan = await Loan.findOne({ userId: req.params.userId });
 
     if (!loan) {
-      return res.status(200).json({ message: "No active loan found.", status: "NOT_FOUND", loan: null });
+      return res.status(200).json({ status: "NOT_FOUND", message: "No active loan found." });
     }
 
     res.json({ status: "SUCCESS", loan });
   } catch (error) {
     console.error("Loan API Error:", error.message);
-    res.status(500).json({ message: "Internal server error", status: "FAILED", error: error.message });
+    res.status(500).json({ status: "FAILED", message: "Internal server error", error: error.message });
   }
 });
+
 
