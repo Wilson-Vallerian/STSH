@@ -8,6 +8,7 @@ const path = require("path");
 const User = require("./models/User");
 const Transaction = require("./models/Transaction");
 const app = express();
+const Loan = require("./models/Loan");
 
 // Middleware
 app.use(express.json());
@@ -408,16 +409,13 @@ app.post("/applyLoan", async (req, res) => {
   }
 });
 
-const Loan = require("./models/Loan");
-
-// ---------------------------------------------------
+// ==========================
 // Fetch the user's active loan
-// ---------------------------------------------------
+// ==========================
 app.get("/loan/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    // Find a loan for this user that's not paid yet
     const activeLoan = await Loan.findOne({
       userId,
       status: "debt",
@@ -446,9 +444,9 @@ app.get("/loan/:userId", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------
+// ==========================
 // Apply for a new loan
-// ---------------------------------------------------
+// ==========================
 app.post("/loan", async (req, res) => {
   try {
     const { userId, amount, password } = req.body;
@@ -466,7 +464,6 @@ app.post("/loan", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    // Check password
     if (user.password !== password) {
       return res
         .status(401)
@@ -512,19 +509,15 @@ app.post("/loan", async (req, res) => {
 app.put("/loan/approve/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
-    // In real production, you'd also check if the user making
-    // this request is an admin, etc.
 
     const loan = await Loan.findById(loanId);
     if (!loan) {
       return res.status(404).json({ message: "Loan not found", status: "FAILED" });
     }
 
-    // Mark as approved
     loan.approval = true;
     await loan.save();
 
-    // Increase user's stshToken since loan is now approved
     const user = await User.findById(loan.userId);
     if (!user) {
       return res
@@ -589,22 +582,16 @@ app.put("/loan/pay/:loanId", async (req, res) => {
         .json({ message: "Loan is already paid", status: "FAILED" });
     }
 
-    // Check if user has enough tokens to pay
     if (user.stshToken < paymentAmount) {
       return res
         .status(400)
         .json({ message: "Not enough STSH to pay loan", status: "FAILED" });
     }
 
-    // Subtract tokens from user
     user.stshToken -= paymentAmount;
     user.totalToken -= paymentAmount;
     await user.save();
 
-    // If fully paid, set status to "paid"
-    // For a partial payment approach, you'd store the outstanding
-    // balance in the Loan doc and so on. For now, let's assume
-    // a single payment pays it off.
     loan.status = "paid";
     await loan.save();
 
@@ -620,3 +607,19 @@ app.put("/loan/pay/:loanId", async (req, res) => {
       .json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
+// ==========================
+// Fetch all loans
+// ==========================
+const Loan = require("./models/Loan");
+
+app.get("/loans", async (req, res) => {
+  try {
+    const loans = await Loan.find().populate("userId", "name email");
+    res.json({ loans });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+
