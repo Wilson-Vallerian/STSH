@@ -611,8 +611,6 @@ app.put("/loan/pay/:loanId", async (req, res) => {
 // ==========================
 // Fetch all loans
 // ==========================
-const Loan = require("./models/Loan");
-
 app.get("/loans", async (req, res) => {
   try {
     const loans = await Loan.find().populate("userId", "name email");
