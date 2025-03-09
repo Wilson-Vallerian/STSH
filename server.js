@@ -609,7 +609,7 @@ app.put("/loan/pay/:loanId", async (req, res) => {
 });
 
 // ==========================
-// Fetch all loans
+// Fetch All Loans
 // ==========================
 app.get("/loans", async (req, res) => {
   try {
@@ -620,4 +620,22 @@ app.get("/loans", async (req, res) => {
   }
 });
 
+// ==========================
+// Enable Admin to Approve Loan
+// ==========================
+app.put("/loan/approve/:loanId", async (req, res) => {
+  try {
+    const { loanId } = req.params;
+    const { approval } = req.body;
 
+    const loan = await Loan.findById(loanId);
+    if (!loan) return res.status(404).json({ message: "Loan not found" });
+
+    loan.approval = approval;
+    await loan.save();
+
+    return res.json({ message: "Approval updated", loan });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
