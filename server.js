@@ -9,6 +9,7 @@ const User = require("./models/User");
 const Transaction = require("./models/Transaction");
 const app = express();
 const Loan = require("./models/Loan");
+const QRCode = require("qrcode");
 
 // Middleware
 app.use(express.json());
@@ -50,6 +51,11 @@ app.get("/", (req, res) => {
 // ==========================
 // User Registration
 // ==========================
+const QRCode = require("qrcode");
+
+// ==========================
+// User Registration with QR Code
+// ==========================
 app.post("/register", async (req, res) => {
   try {
     let { name, email, age, dateOfBirth, password } = req.body;
@@ -66,10 +72,12 @@ app.post("/register", async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "User already exists", status: "FAILED" });
     }
 
-    // Create and save new user
+    // Create new user document
     const newUser = new User({
       name,
       email,
@@ -81,15 +89,34 @@ app.post("/register", async (req, res) => {
       totalToken: 5,
       role: "user",
     });
+
+    await newUser.save();
+
+    // Generate QR code containing the user's ID
+    const qrCodePath = path.join(__dirname, "uploads", `${newUser._id}.png`);
+    const qrCodeUrl = `${req.protocol}://${req.get("host")}/uploads/${newUser._id}.png`;
+
+    await QRCode.toFile(qrCodePath, newUser._id.toString());
+
+    // Update user with QR code URL
+    newUser.qrCodeUrl = qrCodeUrl;
     await newUser.save();
 
     res.status(201).json({
       message: "User registered successfully!",
       status: "SUCCESS",
-      user: newUser,
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        qrCodeUrl: qrCodeUrl, // Send QR Code URL in response
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Registration error", status: "FAILED", error: error.message });
+    console.error("Registration error:", error);
+    res
+      .status(500)
+      .json({ message: "Registration error", status: "FAILED", error: error.message });
   }
 });
 
@@ -639,3 +666,5 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+// TODO: Correct totalToken bug: stshToken + loan
