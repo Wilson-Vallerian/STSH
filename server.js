@@ -51,11 +51,6 @@ app.get("/", (req, res) => {
 // ==========================
 // User Registration
 // ==========================
-const QRCode = require("qrcode");
-
-// ==========================
-// User Registration with QR Code
-// ==========================
 app.post("/register", async (req, res) => {
   try {
     let { name, email, age, dateOfBirth, password } = req.body;
