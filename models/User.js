@@ -10,7 +10,8 @@ const userSchema = new mongoose.Schema({
   stshToken: { type: Number, default: 0 },
   totalToken: { type: Number, default: 0 },
   role: { type: String, default: "user" },
-  transactions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Transaction" }]
+  transactions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Transaction" }],
+  qrCodeUrl: { type: String },
 });
 
 const User = mongoose.model("User", userSchema, "Users");
