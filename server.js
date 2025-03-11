@@ -613,6 +613,7 @@ app.put("/loan/approve/:loanId", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
+    user.stshToken += loan.amount;
     user.totalToken += loan.amount;
     await user.save();
 
