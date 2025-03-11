@@ -614,7 +614,6 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     }
 
     user.stshToken += loan.amount;
-    user.totalToken += loan.amount;
     await user.save();
 
     return res.json({
