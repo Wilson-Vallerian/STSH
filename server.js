@@ -590,10 +590,7 @@ app.post("/loan", async (req, res) => {
 });
 
 // ---------------------------------------------------
-// [Optional] Approve the loan (admin endpoint)
-// This is an example if you want an admin to approve
-// the loan. When a loan is approved, we add tokens to
-// the user’s account. Adjust the logic as needed!
+// Admin approving loans
 // ---------------------------------------------------
 app.put("/loan/approve/:loanId", async (req, res) => {
   try {
@@ -616,6 +613,7 @@ app.put("/loan/approve/:loanId", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
+    user.totalToken += loan.amount;
     await user.save();
 
     return res.json({
@@ -635,79 +633,72 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 });
 
 // ---------------------------------------------------
-// [Optional] Pay off the loan
+// Pay off the loan
 // Sets status to "paid" and subtract tokens from user
 // ---------------------------------------------------
 app.put("/loan/pay/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
     const { userId, paymentAmount, password } = req.body;
-    // Validate inputs
-    if (
-      !loanId ||
-      !userId ||
-      !paymentAmount ||
-      paymentAmount <= 0 ||
-      !password
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Invalid input", status: "FAILED" });
+
+    if (!loanId || !userId || !paymentAmount || paymentAmount <= 0 || !password) {
+      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User not found", status: "FAILED" });
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== password) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect password", status: "FAILED" });
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
     const loan = await Loan.findById(loanId);
     if (!loan) {
-      return res
-        .status(404)
-        .json({ message: "Loan not found", status: "FAILED" });
+      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
     }
 
     if (loan.status === "paid") {
-      return res
-        .status(400)
-        .json({ message: "Loan is already paid", status: "FAILED" });
+      return res.status(400).json({ message: "Loan is already paid", status: "FAILED" });
     }
 
     if (user.stshToken < paymentAmount) {
-      return res
-        .status(400)
-        .json({ message: "Not enough STSH to pay loan", status: "FAILED" });
+      return res.status(400).json({ message: "Not enough STSH to pay loan", status: "FAILED" });
     }
 
     user.stshToken -= paymentAmount;
-    user.totalToken -= paymentAmount;
-    await user.save();
+    loan.amount -= paymentAmount;
 
-    loan.status = "paid";
+    // If fully paid, mark loan as "paid"
+    if (loan.amount <= 0) {
+      loan.status = "paid";
+      loan.amount = 0;
+    }
+
+    user.totalToken = user.stshToken + loan.amount;
+    await user.save();
     await loan.save();
 
     return res.json({
       message: "Loan paid off successfully",
       status: "SUCCESS",
       loan,
-      user,
+      updatedUser: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        stshToken: user.stshToken,
+        loan: loan.amount, 
+        totalToken: user.totalToken,
+      },
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    return res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
