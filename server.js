@@ -104,14 +104,18 @@ app.post("/register", async (req, res) => {
         _id: newUser._id,
         name: newUser.name,
         email: newUser.email,
-        qrCodeUrl: qrCodeUrl, // Send QR Code URL in response
+        qrCodeUrl: qrCodeUrl,
       },
     });
   } catch (error) {
     console.error("Registration error:", error);
     res
       .status(500)
-      .json({ message: "Registration error", status: "FAILED", error: error.message });
+      .json({
+        message: "Registration error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -123,23 +127,31 @@ app.post("/login", async (req, res) => {
     let { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required", status: "FAILED" });
     }
 
     email = email.toLowerCase();
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(401).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== password) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     res.json({ message: "Login successful!", status: "SUCCESS", user });
   } catch (error) {
-    res.status(500).json({ message: "Login error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Login error", status: "FAILED", error: error.message });
   }
 });
 
@@ -151,20 +163,30 @@ app.put("/updateName", async (req, res) => {
     const { userId, newName } = req.body;
 
     if (!userId || !newName) {
-      return res.status(400).json({ message: "Missing userId or newName", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Missing userId or newName", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     user.name = newName;
     await user.save();
 
-    res.json({ message: "Name updated successfully", status: "SUCCESS", updatedUser: user });
+    res.json({
+      message: "Name updated successfully",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error: " + error.message, status: "FAILED" });
+    res
+      .status(500)
+      .json({ message: "Server error: " + error.message, status: "FAILED" });
   }
 });
 
@@ -176,22 +198,32 @@ app.put("/updatePassword", async (req, res) => {
     const { userId, currentPassword, newPassword } = req.body;
 
     if (!userId || !currentPassword || !newPassword) {
-      return res.status(400).json({ message: "Missing required fields", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Missing required fields", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== currentPassword) {
-      return res.status(401).json({ message: "Incorrect current password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect current password", status: "FAILED" });
     }
 
     user.password = newPassword;
     await user.save();
 
-    res.json({ message: "Password updated successfully!", status: "SUCCESS", updatedUser: user });
+    res.json({
+      message: "Password updated successfully!",
+      status: "SUCCESS",
+      updatedUser: user,
+    });
   } catch (error) {
     console.error("Password update error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -220,7 +252,10 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
   if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error("Only .jpeg, .jpg, and .png files are allowed!"), false);
+    return cb(
+      new Error("Only .jpeg, .jpg, and .png files are allowed!"),
+      false
+    );
   }
   cb(null, true);
 };
@@ -228,45 +263,55 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter });
 
 // Profile Picture Upload API
-app.put("/updateProfilePicture", upload.single("profilePicture"), async (req, res) => {
-  try {
-    const { userId } = req.body;
+app.put(
+  "/updateProfilePicture",
+  upload.single("profilePicture"),
+  async (req, res) => {
+    try {
+      const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ message: "User ID is required.", status: "FAILED" });
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ message: "User ID is required.", status: "FAILED" });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ message: "User not found", status: "FAILED" });
+      }
+
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ message: "No file uploaded.", status: "FAILED" });
+      }
+
+      // Construct the absolute file URL
+      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+      // Update the user's profile picture in the database
+      user.photoUrl = fileUrl;
+      await user.save();
+
+      res.json({
+        message: "Profile picture updated successfully!",
+        status: "SUCCESS",
+        updatedUser: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          photoUrl: fileUrl,
+        },
+      });
+    } catch (error) {
+      console.error("Profile picture update error:", error);
+      res.status(500).json({ message: "Server error", error: error.message });
     }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded.", status: "FAILED" });
-    }
-
-    // Construct the absolute file URL
-    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-
-    // Update the user's profile picture in the database
-    user.photoUrl = fileUrl;
-    await user.save();
-
-    res.json({
-      message: "Profile picture updated successfully!",
-      status: "SUCCESS",
-      updatedUser: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        photoUrl: fileUrl,
-      },
-    });
-  } catch (error) {
-    console.error("Profile picture update error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
   }
-});
+);
 
 // Serve the "uploads" folder statically to access images via URL
 app.use("/uploads", express.static(UPLOADS_FOLDER));
@@ -286,15 +331,25 @@ app.post("/transfer", async (req, res) => {
     const sender = await User.findById(senderId);
     const recipient = await User.findById(recipientId);
 
-    if (!sender) return res.status(404).json({ message: "Sender not found", status: "FAILED" });
-    if (!recipient) return res.status(404).json({ message: "Recipient not found", status: "FAILED" });
+    if (!sender)
+      return res
+        .status(404)
+        .json({ message: "Sender not found", status: "FAILED" });
+    if (!recipient)
+      return res
+        .status(404)
+        .json({ message: "Recipient not found", status: "FAILED" });
 
     if (sender.password !== password) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     if (sender.stshToken < amount) {
-      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Insufficient balance", status: "FAILED" });
     }
 
     sender.stshToken -= amount;
@@ -329,13 +384,15 @@ app.get("/user/email/:email", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email.toLowerCase() });
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
-      stshToken: user.stshToken
+      stshToken: user.stshToken,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -349,7 +406,9 @@ app.get("/user/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: "User ID not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User ID not found", status: "FAILED" });
     }
     res.json({
       name: user.name,
@@ -395,18 +454,24 @@ app.post("/applyLoan", async (req, res) => {
 
     if (!userId || !amount || amount <= 0 || !password) {
       console.log("❌ Validation failed: Missing fields or invalid amount.");
-      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Invalid input", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
       console.log("❌ User not found in DB.");
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     if (user.password !== password) {
       console.log("❌ Incorrect password for user:", userId);
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     console.log("✅ User authenticated. Applying loan...");
@@ -518,7 +583,9 @@ app.post("/loan", async (req, res) => {
     });
   } catch (error) {
     console.error("Loan application error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 });
 
@@ -534,7 +601,9 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 
     const loan = await Loan.findById(loanId);
     if (!loan) {
-      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Loan not found", status: "FAILED" });
     }
 
     loan.approval = true;
@@ -547,8 +616,6 @@ app.put("/loan/approve/:loanId", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    user.stshToken += loan.amount;
-    user.totalToken += loan.amount;
     await user.save();
 
     return res.json({
@@ -559,7 +626,11 @@ app.put("/loan/approve/:loanId", async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Server error", status: "FAILED", error: error.message });
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -572,7 +643,13 @@ app.put("/loan/pay/:loanId", async (req, res) => {
     const { loanId } = req.params;
     const { userId, paymentAmount, password } = req.body;
     // Validate inputs
-    if (!loanId || !userId || !paymentAmount || paymentAmount <= 0 || !password) {
+    if (
+      !loanId ||
+      !userId ||
+      !paymentAmount ||
+      paymentAmount <= 0 ||
+      !password
+    ) {
       return res
         .status(400)
         .json({ message: "Invalid input", status: "FAILED" });
@@ -626,7 +703,11 @@ app.put("/loan/pay/:loanId", async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Server error", status: "FAILED", error: error.message });
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -663,3 +744,4 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 });
 
 // TODO: Correct totalToken bug: stshToken + loan
+// TODO: Correct STSH Token: remove stshToken + loan
