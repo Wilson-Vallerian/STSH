@@ -399,6 +399,35 @@ app.get("/user/email/:email", async (req, res) => {
   }
 });
 
+// Find User by ID or Email
+app.get("/user/search/:query", async (req, res) => {
+  try {
+    const query = req.params.query;
+
+    // Check if the query is a valid MongoDB ObjectId
+    const isObjectId = mongoose.Types.ObjectId.isValid(query);
+
+    // Search by either _id or email (case-insensitive for email)
+    const user = await User.findOne(
+      isObjectId ? { _id: query } : { email: query.toLowerCase() }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      stshToken: user.stshToken,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
+
 // ==========================
 // Fetch User Details
 // ==========================
@@ -589,9 +618,9 @@ app.post("/loan", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------
+// ==========================
 // Admin approving loans
-// ---------------------------------------------------
+// ==========================
 app.put("/loan/approve/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
@@ -632,10 +661,10 @@ app.put("/loan/approve/:loanId", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------
+// ==========================
 // Pay off the loan
 // Sets status to "paid" and subtract tokens from user
-// ---------------------------------------------------
+// ==========================
 app.put("/loan/pay/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
@@ -735,4 +764,3 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 });
 
 // TODO: Correct totalToken bug: stshToken + loan
-// TODO: Correct STSH Token: remove stshToken + loan
