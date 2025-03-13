@@ -403,11 +403,8 @@ app.get("/user/email/:email", async (req, res) => {
 app.get("/user/search/:query", async (req, res) => {
   try {
     const query = req.params.query;
-
-    // Check if the query is a valid MongoDB ObjectId
     const isObjectId = mongoose.Types.ObjectId.isValid(query);
-
-    // Search by either _id or email (case-insensitive for email)
+    
     const user = await User.findOne(
       isObjectId ? { _id: query } : { email: query.toLowerCase() }
     );
@@ -762,5 +759,74 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+// ==========================
+// Promote or Demote User (Only for SuperAdmin)
+// ==========================
+app.put("/user/role/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { newRole, requesterId } = req.body;
+
+    // Validate input
+    if (!userId || !newRole || !requesterId) {
+      return res.status(400).json({
+        message: "Missing required fields",
+        status: "FAILED",
+      });
+    }
+
+    // Find the requester (who is trying to promote/demote)
+    const requester = await User.findById(requesterId);
+    if (!requester || requester.role !== "superAdmin") {
+      return res.status(403).json({
+        message: "Unauthorized. Only superAdmins can change roles.",
+        status: "FAILED",
+      });
+    }
+
+    // Find the target user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    // Prevent changing another superAdmin's role
+    if (user.role === "superAdmin") {
+      return res.status(403).json({
+        message: "You cannot modify another superAdmin's role.",
+        status: "FAILED",
+      });
+    }
+
+    // Only allow valid role changes
+    const validRoles = ["user", "admin"];
+    if (!validRoles.includes(newRole)) {
+      return res.status(400).json({
+        message: "Invalid role. Allowed roles: 'user', 'admin'.",
+        status: "FAILED",
+      });
+    }
+
+    // Update role
+    user.role = newRole;
+    await user.save();
+
+    return res.json({
+      message: `User promoted to ${newRole} successfully!`,
+      status: "SUCCESS",
+      updatedUser: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Role update error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 
 // TODO: Correct totalToken bug: stshToken + loan
