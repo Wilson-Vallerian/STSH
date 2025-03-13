@@ -828,5 +828,48 @@ app.put("/user/role/:userId", async (req, res) => {
   }
 });
 
+// ==========================
+// Filter Users by Loan, STSH Token, Total Token, Email, or ID
+// ==========================
+app.get("/users/filter", async (req, res) => {
+  try {
+    const { loanMin, loanMax, stshMin, stshMax, totalMin, totalMax, email, id } = req.query;
+
+    let filter = {};
+
+    if (loanMin || loanMax) {
+      filter.loan = {};
+      if (loanMin) filter.loan.$gte = parseInt(loanMin);
+      if (loanMax) filter.loan.$lte = parseInt(loanMax);
+    }
+
+    if (stshMin || stshMax) {
+      filter.stshToken = {};
+      if (stshMin) filter.stshToken.$gte = parseInt(stshMin);
+      if (stshMax) filter.stshToken.$lte = parseInt(stshMax);
+    }
+
+    if (totalMin || totalMax) {
+      filter.totalToken = {};
+      if (totalMin) filter.totalToken.$gte = parseInt(totalMin);
+      if (totalMax) filter.totalToken.$lte = parseInt(totalMax);
+    }
+
+    if (email) {
+      filter.email = { $regex: email, $options: "i" }; // Case-insensitive search
+    }
+
+    if (id) {
+      filter._id = id;
+    }
+
+    const users = await User.find(filter);
+    res.json({ users });
+  } catch (error) {
+    console.error("Error filtering users:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
+
 
 // TODO: Correct totalToken bug: stshToken + loan
