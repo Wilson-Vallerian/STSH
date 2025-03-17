@@ -81,7 +81,6 @@ app.post("/register", async (req, res) => {
       password,
       stshToken: 5,
       loan: 0,
-      totalToken: 5,
       role: "user",
     });
 
@@ -355,6 +354,9 @@ app.post("/transfer", async (req, res) => {
     sender.stshToken -= amount;
     recipient.stshToken += amount;
 
+    await sender.save();
+    await recipient.save();
+
     // Store transaction
     const transaction = new Transaction({ senderId, recipientId, amount });
     await transaction.save();
@@ -363,15 +365,10 @@ app.post("/transfer", async (req, res) => {
     sender.transactions.push(transaction._id);
     recipient.transactions.push(transaction._id);
 
-    await sender.save();
-    await recipient.save();
-
     res.json({
       message: `Transferred ${amount} STSH Token to ${recipient.name} (${recipientId})`,
       senderBalance: sender.stshToken,
       recipientBalance: recipient.stshToken,
-      senderTotalToken: sender.totalToken,
-      recipientTotalToken: recipient.totalToken,
       status: "SUCCESS",
     });
   } catch (error) {
@@ -430,20 +427,14 @@ app.get("/user/search/:query", async (req, res) => {
 // ==========================
 app.get("/user/:id", async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).lean();
     if (!user) {
       return res
         .status(404)
         .json({ message: "User ID not found", status: "FAILED" });
     }
     res.json({
-      name: user.name,
-      stshToken: user.stshToken,
-      email: user.email,
-      _id: user._id,
-      loan: user.loan,
-      totalToken: user.totalToken,
-      role: user.role,
+      ...user,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -503,9 +494,6 @@ app.post("/applyLoan", async (req, res) => {
     console.log("✅ User authenticated. Applying loan...");
 
     user.loan += parseInt(amount);
-
-    user.totalToken = user.stshToken + user.loan;
-
     await user.save();
 
     console.log(`✅ Loan of ${amount} STSH applied to ${userId}`);
@@ -513,7 +501,6 @@ app.post("/applyLoan", async (req, res) => {
     res.json({
       message: `Loan of ${amount} STSH applied successfully!`,
       loanAmount: user.loan,
-      totalToken: user.totalToken,
       status: "SUCCESS",
     });
   } catch (error) {
@@ -702,7 +689,6 @@ app.put("/loan/pay/:loanId", async (req, res) => {
       loan.amount = 0;
     }
 
-    user.totalToken = user.stshToken + loan.amount;
     await user.save();
     await loan.save();
 
@@ -716,7 +702,6 @@ app.put("/loan/pay/:loanId", async (req, res) => {
         email: user.email,
         stshToken: user.stshToken,
         loan: loan.amount, 
-        totalToken: user.totalToken,
       },
     });
   } catch (error) {
@@ -844,10 +829,14 @@ app.get("/users/filter", async (req, res) => {
     }
 
     if (totalMin || totalMax) {
-      matchCriteria.totalToken = {};
-      if (totalMin) matchCriteria.totalToken.$gte = parseInt(totalMin);
-      if (totalMax) matchCriteria.totalToken.$lte = parseInt(totalMax);
-    }
+      matchCriteria.$expr = {};
+      let conditions = [];
+    
+      if (totalMin) conditions.push({ $gte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMin)] });
+      if (totalMax) conditions.push({ $lte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMax)] });
+    
+      matchCriteria.$expr = { $and: conditions };
+    }    
 
     if (email) {
       matchCriteria.email = { $regex: email, $options: "i" };
@@ -900,6 +889,3 @@ app.get("/users/filter", async (req, res) => {
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
-
-
-// TODO: Correct totalToken bug: stshToken + loan
