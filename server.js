@@ -428,25 +428,89 @@ app.get("/user/search/:query", async (req, res) => {
 // ==========================
 // Fetch User Details
 // ==========================
+// app.get("/user/:id", async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.id);
+//     if (!user) {
+//       return res
+//         .status(404)
+//         .json({ message: "User ID not found", status: "FAILED" });
+//     }
+//     res.json({
+//       name: user.name,
+//       stshToken: user.stshToken,
+//       email: user.email,
+//       _id: user._id,
+//       loan: user.loan,
+//       totalToken: user.totalToken,
+//       role: user.role,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// });
 app.get("/user/:id", async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User ID not found", status: "FAILED" });
+    const userId = req.params.id;
+
+    // Check if the provided ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID format",
+        status: "FAILED",
+      });
     }
-    res.json({
-      name: user.name,
-      stshToken: user.stshToken,
-      email: user.email,
+
+    // Find the user by ID
+    const user = await User.findById(userId).select("-password"); // Exclude password from response
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User ID not found",
+        status: "FAILED",
+      });
+    }
+
+    // Fetch total unpaid loan amount (sum of all loans with status "debt")
+    const totalLoan = await Loan.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(userId),
+          status: "debt", // Only fetch loans that are still unpaid
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" }, // Sum all loan amounts
+        },
+      },
+    ]);
+
+    // Get the loan amount (default to 0 if no active loans)
+    const loanAmount = totalLoan.length > 0 ? totalLoan[0].totalAmount : 0;
+
+    // Construct response object
+    const userData = {
       _id: user._id,
-      loan: user.loan,
+      name: user.name,
+      email: user.email,
+      stshToken: user.stshToken,
       totalToken: user.totalToken,
+      loan: loanAmount, // Dynamically computed loan amount
       role: user.role,
-    });
+      qrCodeUrl: user.qrCodeUrl,
+      photoUrl: user.photoUrl || "",
+    };
+
+    res.json(userData);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error fetching user:", error);
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -835,35 +899,65 @@ app.get("/users/filter", async (req, res) => {
   try {
     const { loanMin, loanMax, stshMin, stshMax, totalMin, totalMax, email, id } = req.query;
 
-    let filter = {};
-
-    if (loanMin || loanMax) {
-      filter.loan = {};
-      if (loanMin) filter.loan.$gte = parseInt(loanMin);
-      if (loanMax) filter.loan.$lte = parseInt(loanMax);
-    }
+    let matchCriteria = {};
 
     if (stshMin || stshMax) {
-      filter.stshToken = {};
-      if (stshMin) filter.stshToken.$gte = parseInt(stshMin);
-      if (stshMax) filter.stshToken.$lte = parseInt(stshMax);
+      matchCriteria.stshToken = {};
+      if (stshMin) matchCriteria.stshToken.$gte = parseInt(stshMin);
+      if (stshMax) matchCriteria.stshToken.$lte = parseInt(stshMax);
     }
 
     if (totalMin || totalMax) {
-      filter.totalToken = {};
-      if (totalMin) filter.totalToken.$gte = parseInt(totalMin);
-      if (totalMax) filter.totalToken.$lte = parseInt(totalMax);
+      matchCriteria.totalToken = {};
+      if (totalMin) matchCriteria.totalToken.$gte = parseInt(totalMin);
+      if (totalMax) matchCriteria.totalToken.$lte = parseInt(totalMax);
     }
 
     if (email) {
-      filter.email = { $regex: email, $options: "i" }; // Case-insensitive search
+      matchCriteria.email = { $regex: email, $options: "i" };
     }
 
     if (id) {
-      filter._id = id;
+      matchCriteria._id = id;
     }
 
-    const users = await User.find(filter);
+    // Aggregate query to fetch users and calculate total loan amount
+    const users = await User.aggregate([
+      { $match: matchCriteria },
+      {
+        $lookup: {
+          from: "loans",
+          localField: "_id",
+          foreignField: "userId",
+          as: "userLoans",
+        },
+      },
+      {
+        $addFields: {
+          loan: {
+            $sum: {
+              $map: {
+                input: "$userLoans",
+                as: "loan",
+                in: {
+                  $cond: [{ $eq: ["$$loan.status", "debt"] }, "$$loan.amount", 0],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $match: loanMin || loanMax ? { loan: { ...(loanMin && { $gte: parseInt(loanMin) }), ...(loanMax && { $lte: parseInt(loanMax) }) } } : {},
+      },
+      {
+        $project: {
+          password: 0,
+          userLoans: 0,
+        },
+      },
+    ]);
+
     res.json({ users });
   } catch (error) {
     console.error("Error filtering users:", error);
