@@ -428,89 +428,25 @@ app.get("/user/search/:query", async (req, res) => {
 // ==========================
 // Fetch User Details
 // ==========================
-// app.get("/user/:id", async (req, res) => {
-//   try {
-//     const user = await User.findById(req.params.id);
-//     if (!user) {
-//       return res
-//         .status(404)
-//         .json({ message: "User ID not found", status: "FAILED" });
-//     }
-//     res.json({
-//       name: user.name,
-//       stshToken: user.stshToken,
-//       email: user.email,
-//       _id: user._id,
-//       loan: user.loan,
-//       totalToken: user.totalToken,
-//       role: user.role,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// });
 app.get("/user/:id", async (req, res) => {
   try {
-    const userId = req.params.id;
-
-    // Check if the provided ID is a valid MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        message: "Invalid user ID format",
-        status: "FAILED",
-      });
-    }
-
-    // Find the user by ID
-    const user = await User.findById(userId).select("-password"); // Exclude password from response
-
+    const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({
-        message: "User ID not found",
-        status: "FAILED",
-      });
+      return res
+        .status(404)
+        .json({ message: "User ID not found", status: "FAILED" });
     }
-
-    // Fetch total unpaid loan amount (sum of all loans with status "debt")
-    const totalLoan = await Loan.aggregate([
-      {
-        $match: {
-          userId: new mongoose.Types.ObjectId(userId),
-          status: "debt", // Only fetch loans that are still unpaid
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$amount" }, // Sum all loan amounts
-        },
-      },
-    ]);
-
-    // Get the loan amount (default to 0 if no active loans)
-    const loanAmount = totalLoan.length > 0 ? totalLoan[0].totalAmount : 0;
-
-    // Construct response object
-    const userData = {
-      _id: user._id,
+    res.json({
       name: user.name,
-      email: user.email,
       stshToken: user.stshToken,
+      email: user.email,
+      _id: user._id,
+      loan: user.loan,
       totalToken: user.totalToken,
-      loan: loanAmount, // Dynamically computed loan amount
       role: user.role,
-      qrCodeUrl: user.qrCodeUrl,
-      photoUrl: user.photoUrl || "",
-    };
-
-    res.json(userData);
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    res.status(500).json({
-      message: "Server error",
-      status: "FAILED",
-      error: error.message,
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
