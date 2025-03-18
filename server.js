@@ -896,13 +896,21 @@ app.get("/users/filter", async (req, res) => {
 // ==========================
 app.post("/requests", async (req, res) => {
   try {
-    const { userId, seed, dirt } = req.body;
+    const { userId, seedType, seedAmount, dirtType, dirtAmount, address } = req.body;
 
-    if (!userId || !seed || !dirt || isNaN(seed) || isNaN(dirt)) {
+    if (!userId || !seedType || !seedAmount || !dirtType || !dirtAmount || !address) {
       return res.status(400).json({ message: "Invalid input", status: "FAILED" });
     }
 
-    const newRequest = new Request({ userId, seed, dirt });
+    const newRequest = new Request({
+      userId,
+      seedType,
+      seedAmount: parseFloat(seedAmount),
+      dirtType,
+      dirtAmount: parseFloat(dirtAmount),
+      address
+    });
+
     await newRequest.save();
 
     res.status(201).json({ message: "Request submitted successfully", status: "SUCCESS", request: newRequest });
