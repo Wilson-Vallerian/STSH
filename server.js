@@ -10,6 +10,7 @@ const Transaction = require("./models/Transaction");
 const app = express();
 const Loan = require("./models/Loan");
 const QRCode = require("qrcode");
+const Request = require("./models/Request");
 
 // Middleware
 app.use(express.json());
@@ -814,7 +815,7 @@ app.put("/user/role/:userId", async (req, res) => {
 });
 
 // ==========================
-// Filter Users by Loan, STSH Token, Total Token, Email, or ID
+// Filter Users by Loan, STSH Token, Email, or ID
 // ==========================
 app.get("/users/filter", async (req, res) => {
   try {
@@ -887,5 +888,96 @@ app.get("/users/filter", async (req, res) => {
   } catch (error) {
     console.error("Error filtering users:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
+
+// ==========================
+// Submit a New Agriculture Request
+// ==========================
+app.post("/requests", async (req, res) => {
+  try {
+    const { userId, seed, dirt } = req.body;
+
+    if (!userId || !seed || !dirt || isNaN(seed) || isNaN(dirt)) {
+      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+    }
+
+    const newRequest = new Request({ userId, seed, dirt });
+    await newRequest.save();
+
+    res.status(201).json({ message: "Request submitted successfully", status: "SUCCESS", request: newRequest });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
+
+// ==========================
+// Fetch All Agriculture Requests
+// ==========================
+app.get("/requests", async (req, res) => {
+  try {
+    const requests = await Request.find().populate("userId", "name email");
+    res.json({ requests });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// ==========================
+// Fetch Requests by User ID
+// ==========================
+app.get("/requests/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userRequests = await Request.find({ userId }).sort({ timestamp: -1 });
+
+    if (!userRequests.length) {
+      return res.status(404).json({ message: "No requests found", status: "FAILED" });
+    }
+
+    res.json({ requests: userRequests });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// ==========================
+// Update or Approve an Agriculture Request
+// ==========================
+app.put("/requests/:requestId", async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status } = req.body;
+
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status", status: "FAILED" });
+    }
+
+    const request = await Request.findByIdAndUpdate(requestId, { status }, { new: true });
+    if (!request) {
+      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+    }
+
+    res.json({ message: "Request updated successfully", status: "SUCCESS", request });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// ==========================
+// Delete a Request
+// ==========================
+app.delete("/requests/:requestId", async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await Request.findByIdAndDelete(requestId);
+
+    if (!request) {
+      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+    }
+
+    res.json({ message: "Request deleted successfully", status: "SUCCESS" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
