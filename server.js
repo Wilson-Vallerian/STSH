@@ -899,22 +899,31 @@ app.post("/requests", async (req, res) => {
     const { userId, seedType, seedAmount, dirtType, dirtAmount, address } = req.body;
 
     if (!userId || !seedType || !seedAmount || !dirtType || !dirtAmount || !address) {
-      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+      return res.status(400).json({ message: "All fields are required.", status: "FAILED" });
+    }
+
+    // Ensure numerical values are parsed correctly
+    const parsedSeedAmount = parseFloat(seedAmount);
+    const parsedDirtAmount = parseFloat(dirtAmount);
+
+    if (isNaN(parsedSeedAmount) || isNaN(parsedDirtAmount) || parsedSeedAmount <= 0 || parsedDirtAmount <= 0) {
+      return res.status(400).json({ message: "Seed and Dirt amounts must be valid numbers greater than 0.", status: "FAILED" });
     }
 
     const newRequest = new Request({
       userId,
       seedType,
-      seedAmount: parseFloat(seedAmount),
+      seedAmount: parsedSeedAmount,
       dirtType,
-      dirtAmount: parseFloat(dirtAmount),
-      address
+      dirtAmount: parsedDirtAmount,
+      address,
     });
 
     await newRequest.save();
 
     res.status(201).json({ message: "Request submitted successfully", status: "SUCCESS", request: newRequest });
   } catch (error) {
+    console.error("Error submitting request:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
@@ -925,9 +934,11 @@ app.post("/requests", async (req, res) => {
 app.get("/requests", async (req, res) => {
   try {
     const requests = await Request.find().populate("userId", "name email");
-    res.json({ requests });
+
+    res.json({ requests }); // Return empty array if no requests exist
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error fetching requests:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
 
@@ -937,15 +948,12 @@ app.get("/requests", async (req, res) => {
 app.get("/requests/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const userRequests = await Request.find({ userId }).sort({ timestamp: -1 });
-
-    if (!userRequests.length) {
-      return res.status(404).json({ message: "No requests found", status: "FAILED" });
-    }
+    const userRequests = await Request.find({ userId }).sort({ timestamp: -1 }).populate("userId", "name email");
 
     res.json({ requests: userRequests });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error fetching user requests:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
 
@@ -955,20 +963,32 @@ app.get("/requests/:userId", async (req, res) => {
 app.put("/requests/:requestId", async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { status } = req.body;
+    const { seedType, seedAmount, dirtType, dirtAmount, address, status } = req.body;
 
-    if (!["pending", "approved", "rejected"].includes(status)) {
+    const validStatuses = ["pending", "approved", "rejected"];
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status", status: "FAILED" });
     }
 
-    const request = await Request.findByIdAndUpdate(requestId, { status }, { new: true });
+    // Ensure numerical values are parsed correctly if provided
+    const updatedData = {};
+    if (seedType) updatedData.seedType = seedType;
+    if (seedAmount) updatedData.seedAmount = parseFloat(seedAmount);
+    if (dirtType) updatedData.dirtType = dirtType;
+    if (dirtAmount) updatedData.dirtAmount = parseFloat(dirtAmount);
+    if (address) updatedData.address = address;
+    if (status) updatedData.status = status;
+
+    const request = await Request.findByIdAndUpdate(requestId, updatedData, { new: true });
+
     if (!request) {
       return res.status(404).json({ message: "Request not found", status: "FAILED" });
     }
 
     res.json({ message: "Request updated successfully", status: "SUCCESS", request });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error updating request:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
 
@@ -986,6 +1006,7 @@ app.delete("/requests/:requestId", async (req, res) => {
 
     res.json({ message: "Request deleted successfully", status: "SUCCESS" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error deleting request:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
