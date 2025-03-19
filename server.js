@@ -1020,13 +1020,13 @@ app.put("/requests/:requestId", async (req, res) => {
     const { requestId } = req.params;
     let { status, totalPrice, approval } = req.body;
 
-    // Ensure 'status' is one of the allowed values
+    // Ensure 'status' is valid
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status", status: "FAILED" });
     }
 
-    // Ensure 'totalPrice' is a valid positive number
+    // Ensure 'totalPrice' is a valid number
     if (totalPrice !== undefined) {
       totalPrice = parseFloat(totalPrice);
       if (isNaN(totalPrice) || totalPrice < 0) {
@@ -1034,23 +1034,23 @@ app.put("/requests/:requestId", async (req, res) => {
       }
     }
 
-    // Find the request
-    const request = await Request.findById(requestId);
-    if (!request) {
+    // Find and update the request using { new: true }
+    const updatedRequest = await Request.findByIdAndUpdate(
+      requestId,
+      { 
+        $set: { status, approval, totalPrice } // Explicitly updating totalPrice
+      },
+      { new: true, runValidators: true } // Ensures Mongoose validators run
+    );
+
+    if (!updatedRequest) {
       return res.status(404).json({ message: "Request not found", status: "FAILED" });
     }
 
-    // Update the request fields
-    request.status = status || request.status;
-    if (totalPrice !== undefined) request.totalPrice = totalPrice;
-    if (approval !== undefined) request.approval = approval;
-
-    // Save the updated request
-    await request.save();
-
-    res.json({ message: "Request updated successfully", status: "SUCCESS", request });
+    res.json({ message: "Request updated successfully", status: "SUCCESS", request: updatedRequest });
   } catch (error) {
     console.error("Error updating request:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
