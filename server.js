@@ -967,8 +967,9 @@ app.put("/requests/:requestId", async (req, res) => {
 
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status", status: "FAILED" });
+      return res.status(400).json({ message: "Invalid status. Use 'approved' instead of 'accepted'", status: "FAILED" });
     }
+
 
     // Ensure numerical values are parsed correctly if provided
     const updatedData = {};
@@ -1017,13 +1018,23 @@ app.delete("/requests/:requestId", async (req, res) => {
 app.put("/requests/:requestId", async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { status, totalPrice, approval } = req.body;
+    let { status, totalPrice, approval } = req.body;
 
-    const validStatuses = ["pending", "accepted", "rejected"];
+    // Ensure 'status' is one of the allowed values
+    const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status", status: "FAILED" });
+      return res.status(400).json({ message: "Invalid status. Use 'approved' instead of 'accepted'", status: "FAILED" });
     }
 
+    // Ensure 'totalPrice' is a valid integer
+    if (totalPrice !== undefined) {
+      totalPrice = parseInt(totalPrice, 10);
+      if (isNaN(totalPrice) || totalPrice < 0) {
+        return res.status(400).json({ message: "Invalid totalPrice. Must be a positive number.", status: "FAILED" });
+      }
+    }
+
+    // Update request data
     const updatedData = { status };
     if (totalPrice !== undefined) updatedData.totalPrice = totalPrice;
     if (approval !== undefined) updatedData.approval = approval;
