@@ -1029,6 +1029,7 @@ app.put("/requests/:requestId", async (req, res) => {
     // Ensure 'totalPrice' is a valid integer and greater than 0
     if (totalPrice !== undefined) {
       totalPrice = parseInt(totalPrice, 10);
+      console.log(totalPrice);
       if (isNaN(totalPrice) || totalPrice < 0) {
         return res.status(400).json({ message: "Invalid totalPrice. Must be a positive number.", status: "FAILED" });
       }
