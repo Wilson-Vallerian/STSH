@@ -9,9 +9,11 @@ const requestSchema = new mongoose.Schema({
   address: { type: String, required: true },
   status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
   approval: { type: Boolean, default: false },
-  totalPrice: { type: Number, default: 0 },
-  timestamp: { type: Date, default: Date.now }
-});
+  totalPrice: { type: Number, default: 0, min: [0, "Total price cannot be negative"]},
+  // timestamp: { type: Date, default: Date.now }
+},
+  { timestamps: true }
+);
 
 const Request = mongoose.model("Request", requestSchema, "Requests");
 
