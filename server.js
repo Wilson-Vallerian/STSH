@@ -1020,13 +1020,15 @@ app.put("/requests/:requestId", async (req, res) => {
     const { requestId } = req.params;
     let { status, totalPrice, approval } = req.body;
 
+    console.log("🔵 Incoming Update Request:", { requestId, status, totalPrice, approval });
+
     // Ensure 'status' is valid
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status", status: "FAILED" });
     }
 
-    // Ensure 'totalPrice' is a valid number
+    // Ensure 'totalPrice' is properly parsed
     if (totalPrice !== undefined) {
       totalPrice = parseFloat(totalPrice);
       if (isNaN(totalPrice) || totalPrice < 0) {
@@ -1034,23 +1036,29 @@ app.put("/requests/:requestId", async (req, res) => {
       }
     }
 
-    // Find and update the request using { new: true }
-    const updatedRequest = await Request.findByIdAndUpdate(
-      requestId,
-      { 
-        $set: { status, approval, totalPrice } // Explicitly updating totalPrice
-      },
-      { new: true, runValidators: true } // Ensures Mongoose validators run
-    );
+    // Debugging Log
+    console.log("🟡 Updating request with:", { status, totalPrice, approval });
 
+    // Find and update the request
+    const updatedRequest = await Request.findById(requestId);
     if (!updatedRequest) {
       return res.status(404).json({ message: "Request not found", status: "FAILED" });
     }
 
+    // **Explicitly assign the values**
+    if (status) updatedRequest.status = status;
+    if (approval !== undefined) updatedRequest.approval = approval;
+    if (totalPrice !== undefined) {
+      updatedRequest.totalPrice = totalPrice; // 🔥 Force update `totalPrice`
+    }
+
+    await updatedRequest.save(); // 🔥 Force MongoDB to save the new `totalPrice`
+
+    console.log("🟢 Request updated successfully:", updatedRequest);
+
     res.json({ message: "Request updated successfully", status: "SUCCESS", request: updatedRequest });
   } catch (error) {
-    console.error("Error updating request:", error);
+    console.error("🔴 Error updating request:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
-
