@@ -1010,3 +1010,33 @@ app.delete("/requests/:requestId", async (req, res) => {
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
+// ==========================
+// Fetch Requests by Request ID
+// ==========================
+app.put("/requests/:requestId", async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status, totalPrice, approval } = req.body;
+
+    const validStatuses = ["pending", "accepted", "rejected"];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status", status: "FAILED" });
+    }
+
+    const updatedData = { status };
+    if (totalPrice !== undefined) updatedData.totalPrice = totalPrice;
+    if (approval !== undefined) updatedData.approval = approval;
+
+    const request = await Request.findByIdAndUpdate(requestId, updatedData, { new: true });
+
+    if (!request) {
+      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+    }
+
+    res.json({ message: "Request updated successfully", status: "SUCCESS", request });
+  } catch (error) {
+    console.error("Error updating request:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
