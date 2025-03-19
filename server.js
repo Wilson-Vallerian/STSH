@@ -1026,7 +1026,7 @@ app.put("/requests/:requestId", async (req, res) => {
       return res.status(400).json({ message: "Invalid status. Use 'approved' instead of 'accepted'", status: "FAILED" });
     }
 
-    // Ensure 'totalPrice' is a valid integer
+    // Ensure 'totalPrice' is a valid integer and greater than 0
     if (totalPrice !== undefined) {
       totalPrice = parseInt(totalPrice, 10);
       if (isNaN(totalPrice) || totalPrice < 0) {
@@ -1034,16 +1034,18 @@ app.put("/requests/:requestId", async (req, res) => {
       }
     }
 
-    // Update request data
-    const updatedData = { status };
-    if (totalPrice !== undefined) updatedData.totalPrice = totalPrice;
-    if (approval !== undefined) updatedData.approval = approval;
-
-    const request = await Request.findByIdAndUpdate(requestId, updatedData, { new: true });
-
+    // Ensure the request exists
+    const request = await Request.findById(requestId);
     if (!request) {
       return res.status(404).json({ message: "Request not found", status: "FAILED" });
     }
+
+    // Update the request data
+    request.status = status || request.status;
+    if (totalPrice !== undefined) request.totalPrice = totalPrice;
+    if (approval !== undefined) request.approval = approval;
+
+    await request.save();
 
     res.json({ message: "Request updated successfully", status: "SUCCESS", request });
   } catch (error) {
@@ -1051,3 +1053,4 @@ app.put("/requests/:requestId", async (req, res) => {
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
