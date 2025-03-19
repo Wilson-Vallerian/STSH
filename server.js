@@ -896,7 +896,7 @@ app.get("/users/filter", async (req, res) => {
 // ==========================
 app.post("/requests", async (req, res) => {
   try {
-    const { userId, seedType, seedAmount, dirtType, dirtAmount, address } = req.body;
+    const { userId, seedType, seedAmount, dirtType, dirtAmount, address, totalPrice } = req.body;
 
     if (!userId || !seedType || !seedAmount || !dirtType || !dirtAmount || !address) {
       return res.status(400).json({ message: "All fields are required.", status: "FAILED" });
@@ -917,6 +917,7 @@ app.post("/requests", async (req, res) => {
       dirtType,
       dirtAmount: parsedDirtAmount,
       address,
+      totalPrice: 0,
     });
 
     await newRequest.save();
@@ -963,15 +964,15 @@ app.get("/requests/:userId", async (req, res) => {
 app.put("/requests/:requestId", async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { seedType, seedAmount, dirtType, dirtAmount, address, status } = req.body;
+    let { seedType, seedAmount, dirtType, dirtAmount, address, status, totalPrice, approval } = req.body;
 
+    // Validate status
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status. Use 'approved' instead of 'accepted'", status: "FAILED" });
     }
 
-
-    // Ensure numerical values are parsed correctly if provided
+    // Ensure numerical values are parsed correctly
     const updatedData = {};
     if (seedType) updatedData.seedType = seedType;
     if (seedAmount) updatedData.seedAmount = parseFloat(seedAmount);
@@ -979,16 +980,35 @@ app.put("/requests/:requestId", async (req, res) => {
     if (dirtAmount) updatedData.dirtAmount = parseFloat(dirtAmount);
     if (address) updatedData.address = address;
     if (status) updatedData.status = status;
+    if (approval !== undefined) updatedData.approval = approval;
 
-    const request = await Request.findByIdAndUpdate(requestId, updatedData, { new: true });
+    // Validate and explicitly set `totalPrice`
+    if (totalPrice !== undefined) {
+      totalPrice = parseFloat(totalPrice);
+      if (isNaN(totalPrice) || totalPrice < 0) {
+        return res.status(400).json({ message: "Invalid totalPrice. Must be a positive number.", status: "FAILED" });
+      }
+      updatedData.totalPrice = totalPrice;
+    }
 
+    // Find the request and apply updates
+    const request = await Request.findById(requestId);
     if (!request) {
       return res.status(404).json({ message: "Request not found", status: "FAILED" });
     }
 
+    // Apply updates to the request object
+    Object.assign(request, updatedData);
+
+    // Force Mongoose to detect changes for totalPrice
+    if (totalPrice !== undefined) request.markModified("totalPrice");
+
+    // Save the updated request
+    await request.save();
+
     res.json({ message: "Request updated successfully", status: "SUCCESS", request });
   } catch (error) {
-    console.error("Error updating request:", error);
+    console.error("🔴 Error updating request:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
@@ -1011,34 +1031,3 @@ app.delete("/requests/:requestId", async (req, res) => {
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
-
-// ==========================
-// Fetch Requests by Request ID
-// ==========================
-app.put("/requests/:requestId", async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    let { status, totalPrice, approval } = req.body;
-
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return res.status(404).json({ message: "Request not found", status: "FAILED" });
-    }
-
-    // Apply changes
-    if (status) request.status = status;
-    if (approval !== undefined) request.approval = approval;
-    if (totalPrice !== undefined) {
-      request.totalPrice = totalPrice;
-      request.markModified("totalPrice"); // 🔥 Force Mongoose to detect the change
-    }
-
-    await request.save();
-
-    res.json({ message: "Request updated successfully", status: "SUCCESS", request });
-  } catch (error) {
-    console.error("🔴 Error updating request:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
-  }
-});
-
