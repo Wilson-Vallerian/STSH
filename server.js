@@ -641,15 +641,14 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 
     // Calculate tax (5% of loan amount, rounded down)
     const tax = Math.floor(loan.amount * 0.05);
-    const finalLoanAmount = loan.amount - tax;
+    const netAmount = loan.amount - tax; // Amount user actually receives
 
-    // Approve loan and deduct tax
+    // Approve the loan
     loan.approval = true;
-    loan.amount = finalLoanAmount; // Update loan amount to reflect net received amount
     await loan.save();
 
-    // Credit the final loan amount (after tax) to user's STSH balance
-    user.stshToken += finalLoanAmount;
+    // Credit net loan amount (after tax) to user's STSH balance
+    user.stshToken += netAmount;
     await user.save();
 
     // Store tax collection record in CollectedTax database
@@ -658,15 +657,22 @@ app.put("/loan/approve/:loanId", async (req, res) => {
       email: user.email,
       method: "loan",
       taxCollected: tax,
-      transactionAmount: loan.amount + tax, // Store original requested loan amount
+      transactionAmount: loan.amount, // The original full loan amount (not including tax)
     });
 
     await taxRecord.save();
 
     return res.json({
-      message: `Loan approved! User received ${finalLoanAmount} STSH (Tax: ${tax} STSH).`,
+      message: `Loan approved! User receives ${netAmount} STSH (Tax: ${tax} STSH). Debt remains ${loan.amount} STSH.`,
       status: "SUCCESS",
       loan,
+      updatedUser: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        stshToken: user.stshToken,
+        loanDebt: loan.amount, // Original loan amount (debt remains the same)
+      },
     });
   } catch (error) {
     console.error("Loan approval error:", error);
