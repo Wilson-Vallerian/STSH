@@ -1031,3 +1031,63 @@ app.delete("/requests/:requestId", async (req, res) => {
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
   }
 });
+
+// ==========================
+// Pay for an Agriculture Request
+// ==========================
+app.put("/requests/:requestId/pay", async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { userId, password } = req.body;
+
+    if (!userId || !password) {
+      return res.status(400).json({ message: "User ID and password are required.", status: "FAILED" });
+    }
+
+    // Fetch user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    // Validate password
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }
+
+    // Fetch request
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+    }
+
+    // Ensure request is approved but not paid yet
+    if (request.status !== "approved" || request.approval) {
+      return res.status(400).json({ message: "Request is not eligible for payment", status: "FAILED" });
+    }
+
+    // Check if the user has enough STSH Tokens
+    if (user.stshToken < request.totalPrice) {
+      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+    }
+
+    // Deduct STSH Tokens
+    user.stshToken -= request.totalPrice;
+
+    // Mark request as paid
+    request.approval = true;
+
+    await user.save();
+    await request.save();
+
+    res.json({
+      message: "Payment successful!",
+      status: "SUCCESS",
+      updatedUser: { stshToken: user.stshToken },
+      updatedRequest: request,
+    });
+  } catch (error) {
+    console.error("Payment error:", error);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
