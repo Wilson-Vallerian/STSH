@@ -16,6 +16,7 @@ const CollectedTax = require("./models/CollectedTax");
 // Middleware
 app.use(express.json());
 app.use(cors());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Environment variables
 const PORT = process.env.PORT || 5000;
@@ -90,9 +91,14 @@ app.post("/register", async (req, res) => {
 
     // Generate QR code containing the user's ID
     const qrCodePath = path.join(__dirname, "uploads", `${newUser._id}.png`);
-    const qrCodeUrl = `${req.protocol}://${req.get("host")}/uploads/${newUser._id}.png`;
-
     await QRCode.toFile(qrCodePath, newUser._id.toString());
+
+    // Store QR code inside a permanent profile folder (like profile pictures)
+    const qrCodeFileName = `${newUser._id}-qrcode.png`;
+    const qrCodeStoragePath = path.join(__dirname, "uploads", qrCodeFileName);
+    fs.renameSync(qrCodePath, qrCodeStoragePath);
+
+    const qrCodeUrl = `${req.protocol}://${req.get("host")}/uploads/${qrCodeFileName}`;
 
     // Update user with QR code URL
     newUser.qrCodeUrl = qrCodeUrl;
@@ -639,25 +645,21 @@ app.put("/loan/approve/:loanId", async (req, res) => {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    // Calculate tax (5% of loan amount, rounded down)
     const tax = Math.floor(loan.amount * 0.05);
-    const netAmount = loan.amount - tax; // Amount user actually receives
+    const netAmount = loan.amount - tax;
 
-    // Approve the loan
     loan.approval = true;
     await loan.save();
 
-    // Credit net loan amount (after tax) to user's STSH balance
     user.stshToken += netAmount;
     await user.save();
 
-    // Store tax collection record in CollectedTax database
     const taxRecord = new CollectedTax({
       userId: user._id,
       email: user.email,
       method: "loan",
       taxCollected: tax,
-      transactionAmount: loan.amount, // The original full loan amount (not including tax)
+      transactionAmount: loan.amount, 
     });
 
     await taxRecord.save();
@@ -671,7 +673,7 @@ app.put("/loan/approve/:loanId", async (req, res) => {
         name: user.name,
         email: user.email,
         stshToken: user.stshToken,
-        loanDebt: loan.amount, // Original loan amount (debt remains the same)
+        loanDebt: loan.amount, 
       },
     });
   } catch (error) {
