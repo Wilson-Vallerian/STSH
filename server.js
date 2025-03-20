@@ -598,22 +598,12 @@ app.post("/loan", async (req, res) => {
 
     const newLoan = new Loan({
       userId,
-      amount: finalLoanAmount,
+      amount: loanAmount,
       status: "debt",
       approval: false,
     });
 
     await newLoan.save();
-
-    const taxRecord = new CollectedTax({
-      userId,
-      email: user.email,
-      method: "loan",
-      taxCollected: tax,
-      transactionAmount: loanAmount,
-    });
-
-    await taxRecord.save();
 
     return res.json({
       message: `Loan request for ${loanAmount} STSH submitted (Tax: ${tax} STSH). You will receive ${finalLoanAmount} STSH.`,
