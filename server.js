@@ -627,41 +627,50 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     const loan = await Loan.findById(loanId);
 
     if (!loan) {
-      return res
-        .status(404)
-        .json({ message: "Loan not found", status: "FAILED" });
+      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
     }
 
     if (loan.approval) {
       return res.status(400).json({ message: "Loan is already approved", status: "FAILED" });
     }
 
-    loan.approval = true;
-    await loan.save();
-
     const user = await User.findById(loan.userId);
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User not found", status: "FAILED" });
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    user.stshToken += loan.amount;
+    // Calculate tax (5% of loan amount, rounded down)
+    const tax = Math.floor(loan.amount * 0.05);
+    const finalLoanAmount = loan.amount - tax;
+
+    // Approve loan and deduct tax
+    loan.approval = true;
+    loan.amount = finalLoanAmount; // Update loan amount to reflect net received amount
+    await loan.save();
+
+    // Credit the final loan amount (after tax) to user's STSH balance
+    user.stshToken += finalLoanAmount;
     await user.save();
 
+    // Store tax collection record in CollectedTax database
+    const taxRecord = new CollectedTax({
+      userId: user._id,
+      email: user.email,
+      method: "loan",
+      taxCollected: tax,
+      transactionAmount: loan.amount + tax, // Store original requested loan amount
+    });
+
+    await taxRecord.save();
+
     return res.json({
-      message: `Loan approved and ${loan.amount} tokens added to user's account`,
+      message: `Loan approved! User received ${finalLoanAmount} STSH (Tax: ${tax} STSH).`,
       status: "SUCCESS",
       loan,
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    console.error("Loan approval error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
