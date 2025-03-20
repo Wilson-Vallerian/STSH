@@ -565,11 +565,10 @@ app.get("/loan/:userId", async (req, res) => {
 app.post("/loan", async (req, res) => {
   try {
     const { userId, amount, password } = req.body;
+    const loanAmount = parseInt(amount);
 
-    if (!userId || !amount || amount <= 0 || !password) {
-      return res
-        .status(400)
-        .json({ message: "Invalid input", status: "FAILED" });
+    if (!userId || isNaN(loanAmount) || loanAmount < 100 || loanAmount > 50000 || !password) {
+      return res.status(400).json({ message: "Loan amount must be between 100 and 50,000 STSH Tokens.", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
@@ -594,18 +593,30 @@ app.post("/loan", async (req, res) => {
       });
     }
 
-    // Create the new loan document
+    const tax = Math.floor(loanAmount * 0.05);
+    const finalLoanAmount = loanAmount - tax;
+
     const newLoan = new Loan({
       userId,
-      amount,
-      // status defaults to "debt"
-      // approval defaults to false
+      amount: finalLoanAmount,
+      status: "debt",
+      approval: false,
     });
 
     await newLoan.save();
 
+    const taxRecord = new CollectedTax({
+      userId,
+      email: user.email,
+      method: "loan",
+      taxCollected: tax,
+      transactionAmount: loanAmount,
+    });
+
+    await taxRecord.save();
+
     return res.json({
-      message: `Your loan request for ${amount} STSH has been submitted.`,
+      message: `Loan request for ${loanAmount} STSH submitted (Tax: ${tax} STSH). You will receive ${finalLoanAmount} STSH.`,
       loan: newLoan,
       status: "SUCCESS",
     });
@@ -623,12 +634,16 @@ app.post("/loan", async (req, res) => {
 app.put("/loan/approve/:loanId", async (req, res) => {
   try {
     const { loanId } = req.params;
-
     const loan = await Loan.findById(loanId);
+
     if (!loan) {
       return res
         .status(404)
         .json({ message: "Loan not found", status: "FAILED" });
+    }
+
+    if (loan.approval) {
+      return res.status(400).json({ message: "Loan is already approved", status: "FAILED" });
     }
 
     loan.approval = true;
@@ -645,7 +660,7 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     await user.save();
 
     return res.json({
-      message: "Loan approved and tokens added to user's account",
+      message: `Loan approved and ${loan.amount} tokens added to user's account`,
       status: "SUCCESS",
       loan,
     });
