@@ -1134,8 +1134,9 @@ app.post("/subscribe", async (req, res) => {
     if (user.stshToken < totalCost)
       return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
 
-    // Check if user already subscribed to the same insurance + planType
-    const alreadySubscribed = await Subscription.findOne({ userId, insuranceType, planType });
+    // Check if user already subscribed to the same insurance
+    const alreadySubscribed = await Subscription.findOne({ userId, insuranceType });
+    
     if (alreadySubscribed)
       return res.status(400).json({ message: "You are already subscribed to this plan.", status: "FAILED" });
 
