@@ -7,7 +7,6 @@ const subscriptionSchema = new mongoose.Schema({
   planType: { type: String, required: true },
   price: { type: Number, required: true },
   tax: { type: Number, required: true },
-  timestamp: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("Subscription", subscriptionSchema);
