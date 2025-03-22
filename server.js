@@ -13,6 +13,7 @@ const QRCode = require("qrcode");
 const Request = require("./models/Request");
 const CollectedTax = require("./models/CollectedTax");
 const Subscription = require("./models/Subscription");
+const cron = require("node-cron");
 
 // Middleware
 app.use(express.json());
@@ -44,6 +45,7 @@ async function connectDB() {
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
+    cleanupExpiredSubscriptions();
   });
 });
 
@@ -1138,7 +1140,7 @@ app.post("/subscribe", async (req, res) => {
     const alreadySubscribed = await Subscription.findOne({ userId, insuranceType });
     
     if (alreadySubscribed)
-      return res.status(400).json({ message: "You are already subscribed to this plan.", status: "FAILED" });
+      return res.status(400).json({ message: "You are already subscribed to this type of insurance.", status: "FAILED" });
 
     user.stshToken -= totalCost;
     await user.save();
@@ -1167,3 +1169,18 @@ app.post("/subscribe", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+// ==========================
+// Remove Insurance Subscribtion
+// ==========================
+cron.schedule("0 0 * * *", () => {
+  cleanupExpiredSubscriptions();
+});
+
+const cleanupExpiredSubscriptions = async () => {
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+  const result = await Subscription.deleteMany({ createdAt: { $lt: oneMonthAgo } });
+  console.log(`🧹 Expired subscriptions cleaned: ${result.deletedCount}`);
+};
