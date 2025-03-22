@@ -118,6 +118,17 @@ app.post("/register", async (req, res) => {
         qrCodeUrl: qrCodeUrl,
       },
     });
+
+    try {
+      await Notification.create({
+        userId: newUser._id,
+        title: "Welcome 🎉",
+        message: `Hi ${newUser.name}, welcome to STSH! We're glad to have you.`,
+      });
+    } catch (notifErr) {
+      console.error("⚠️ Failed to create welcome notification:", notifErr.message);
+    }
+
   } catch (error) {
     console.error("Registration error:", error);
     res
