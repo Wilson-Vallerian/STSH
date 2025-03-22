@@ -12,6 +12,7 @@ const Loan = require("./models/Loan");
 const QRCode = require("qrcode");
 const Request = require("./models/Request");
 const CollectedTax = require("./models/CollectedTax");
+const Subscription = require("./models/Subscription");
 
 // Middleware
 app.use(express.json());
@@ -1109,5 +1110,59 @@ app.put("/requests/:requestId/pay", async (req, res) => {
   } catch (error) {
     console.error("Payment error:", error);
     res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+  }
+});
+
+// ==========================
+// Insurance Subscribtion
+// ==========================
+app.post("/subscribe", async (req, res) => {
+  try {
+    const { userId, email, insuranceType, planType, price, tax, password } = req.body;
+
+    if (!userId || !email || !insuranceType || !planType || !price || !password) {
+      return res.status(400).json({ message: "Missing required fields", status: "FAILED" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
+
+    if (user.password !== password)
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+
+    const totalCost = price + tax;
+    if (user.stshToken < totalCost)
+      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+
+    // Check if user already subscribed to the same insurance + planType
+    const alreadySubscribed = await Subscription.findOne({ userId, insuranceType, planType });
+    if (alreadySubscribed)
+      return res.status(400).json({ message: "You are already subscribed to this plan.", status: "FAILED" });
+
+    user.stshToken -= totalCost;
+    await user.save();
+
+    // Save tax
+    await new CollectedTax({
+      userId,
+      email,
+      method: "insurance",
+      taxCollected: tax,
+      transactionAmount: price,
+    }).save();
+
+    // Save subscription
+    await new Subscription({
+      userId,
+      email,
+      insuranceType,
+      planType,
+      price,
+      tax,
+    }).save();
+
+    res.json({ message: "Subscription successful", status: "SUCCESS" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
