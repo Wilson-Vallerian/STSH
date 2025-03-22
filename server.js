@@ -13,6 +13,7 @@ const QRCode = require("qrcode");
 const Request = require("./models/Request");
 const CollectedTax = require("./models/CollectedTax");
 const Subscription = require("./models/Subscription");
+const Notification = require("./models/Notification");
 const cron = require("node-cron");
 
 // Middleware
@@ -1184,3 +1185,42 @@ const cleanupExpiredSubscriptions = async () => {
   const result = await Subscription.deleteMany({ createdAt: { $lt: oneMonthAgo } });
   console.log(`🧹 Expired subscriptions cleaned: ${result.deletedCount}`);
 };
+
+// ==========================
+// Set Expiry Reminder (3 Days) For Insurance Subscribtion
+// ==========================
+app.get("/notifications/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+    res.json({ notifications });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+const sendSubscriptionReminders = async () => {
+  const now = new Date();
+  const threeDaysFromNow = new Date(now);
+  threeDaysFromNow.setDate(now.getDate() - 27); // 30 - 3 = 27 days ago
+
+  const subscriptions = await Subscription.find({
+    createdAt: { $lte: threeDaysFromNow },
+    recurring: true,
+  });
+
+  for (const sub of subscriptions) {
+    await Notification.create({
+      userId: sub.userId,
+      title: "Subscription Reminder",
+      message: `Your ${sub.insuranceType} (${sub.planType}) subscription will expire in 3 days.`,
+    });
+  }
+
+  console.log(`🔔 Sent ${subscriptions.length} subscription reminder notifications.`);
+};
+
+// Run daily
+cron.schedule("0 9 * * *", () => {
+  sendSubscriptionReminders();
+});
