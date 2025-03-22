@@ -7,6 +7,7 @@ const subscriptionSchema = new mongoose.Schema({
   planType: { type: String, required: true },
   price: { type: Number, required: true },
   tax: { type: Number, required: true },
+  recurring: { type: Boolean, default: true },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Subscription", subscriptionSchema);
