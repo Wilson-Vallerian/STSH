@@ -1182,6 +1182,17 @@ app.post("/subscribe", async (req, res) => {
   }
 });
 
+// GET all subscriptions for a user
+app.get("/subscriptions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const subscriptions = await Subscription.find({ userId }).sort({ createdAt: -1 });
+    res.json({ subscriptions });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 // ==========================
 // Remove Insurance Subscribtion
 // ==========================
@@ -1235,6 +1246,7 @@ cron.schedule("0 9 * * *", () => {
   sendSubscriptionReminders();
 });
 
+// Mark notification as seen
 app.put("/notifications/:id/seen", async (req, res) => {
   try {
     const { id } = req.params;
