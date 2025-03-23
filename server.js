@@ -1193,6 +1193,26 @@ app.get("/subscriptions/:userId", async (req, res) => {
   }
 });
 
+// Toggle Recurring
+app.put("/subscriptions/:id/toggleRecurring", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const subscription = await Subscription.findById(id);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found" });
+    }
+
+    subscription.recurring = !subscription.recurring;
+    await subscription.save();
+
+    res.json({ message: "Recurring updated", subscription });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+
 // ==========================
 // Remove Insurance Subscribtion
 // ==========================
