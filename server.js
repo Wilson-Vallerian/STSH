@@ -1213,7 +1213,7 @@ app.get("/notifications/:userId", async (req, res) => {
 const sendSubscriptionReminders = async () => {
   const now = new Date();
   const threeDaysFromNow = new Date(now);
-  threeDaysFromNow.setDate(now.getDate() - 27); // 30 - 3 = 27 days ago
+  threeDaysFromNow.setDate(now.getDate() - 27);
 
   const subscriptions = await Subscription.find({
     createdAt: { $lte: threeDaysFromNow },
@@ -1231,7 +1231,16 @@ const sendSubscriptionReminders = async () => {
   console.log(`🔔 Sent ${subscriptions.length} subscription reminder notifications.`);
 };
 
-// Run daily
 cron.schedule("0 9 * * *", () => {
   sendSubscriptionReminders();
+});
+
+app.put("/notifications/:id/seen", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Notification.findByIdAndUpdate(id, { seen: true });
+    res.json({ message: "Marked as seen", status: "SUCCESS" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
