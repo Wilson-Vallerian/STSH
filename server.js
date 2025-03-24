@@ -1127,7 +1127,6 @@ app.post("/subscribe", async (req, res) => {
     if (user.stshToken < totalCost)
       return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
 
-    // Check if user already subscribed to the same insurance
     const alreadySubscribed = await Subscription.findOne({ userId, insuranceType });
     
     if (alreadySubscribed)
@@ -1210,7 +1209,7 @@ const cleanupExpiredSubscriptions = async () => {
 // ==========================
 app.put("/subscriptions/:id/cancel", async (req, res) => {
   try {
-    const { id } = req.params; // subscription ID
+    const { id } = req.params;
     const { userId, password } = req.body;
 
     if (!userId || !password) {
@@ -1245,7 +1244,7 @@ app.put("/subscriptions/:id/cancel", async (req, res) => {
 });
 
 // ==========================
-// Set Expiry Reminder (3 Days) For Insurance Subscribtion
+// Notification
 // ==========================
 app.get("/notifications/:userId", async (req, res) => {
   try {
@@ -1287,6 +1286,16 @@ app.put("/notifications/:id/seen", async (req, res) => {
     const { id } = req.params;
     await Notification.findByIdAndUpdate(id, { seen: true });
     res.json({ message: "Marked as seen", status: "SUCCESS" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+app.delete("/notifications/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Notification.findByIdAndDelete(id);
+    res.json({ message: "Notification deleted", status: "SUCCESS" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
