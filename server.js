@@ -1235,7 +1235,6 @@ cron.schedule("0 9 * * *", () => {
   sendSubscriptionReminders();
 });
 
-// Mark notification as seen
 app.put("/notifications/:id/seen", async (req, res) => {
   try {
     const { id } = req.params;
