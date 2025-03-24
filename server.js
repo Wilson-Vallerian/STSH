@@ -60,7 +60,7 @@ app.get("/", (req, res) => {
 // ==========================
 app.post("/register", async (req, res) => {
   try {
-    let { name, email, age, dateOfBirth, password } = req.body;
+    let { name, email, dateOfBirth, password } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({
@@ -83,7 +83,6 @@ app.post("/register", async (req, res) => {
     const newUser = new User({
       name,
       email,
-      age,
       dateOfBirth,
       password,
       stshToken: 5,
@@ -1161,6 +1160,35 @@ app.post("/subscribe", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+app.get("/subscriptions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const subscriptions = await Subscription.find({ userId }).sort({ createdAt: -1 });
+    res.json({ subscriptions });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+app.put("/subscriptions/:id/toggleRecurring", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const subscription = await Subscription.findById(id);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found" });
+    }
+
+    subscription.recurring = !subscription.recurring;
+    await subscription.save();
+
+    res.json({ message: "Recurring updated", subscription });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 
 // ==========================
 // Remove Insurance Subscribtion
