@@ -778,26 +778,6 @@ app.get("/loans", async (req, res) => {
 });
 
 // ==========================
-// Enable Admin to Approve Loan
-// ==========================
-app.put("/loan/approve/:loanId", async (req, res) => {
-  try {
-    const { loanId } = req.params;
-    const { approval } = req.body;
-
-    const loan = await Loan.findById(loanId);
-    if (!loan) return res.status(404).json({ message: "Loan not found" });
-
-    loan.approval = approval;
-    await loan.save();
-
-    return res.json({ message: "Approval updated", loan });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// ==========================
 // Promote or Demote User (Only for SuperAdmin)
 // ==========================
 app.put("/user/role/:userId", async (req, res) => {
@@ -1232,7 +1212,7 @@ const sendSubscriptionReminders = async () => {
 };
 
 cron.schedule("0 9 * * *", () => {
-  sendSubscriptionReminders();
+  sendSubscriptionReminders().catch(err => console.error("Reminder error:", err));;
 });
 
 app.put("/notifications/:id/seen", async (req, res) => {
