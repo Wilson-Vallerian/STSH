@@ -1176,15 +1176,6 @@ app.post("/subscribe", async (req, res) => {
       tax,
     }).save();
 
-    // Save to transaction history
-    await new Transaction({
-      senderId: userId,
-      amount: price,
-      tax,
-      totalAmount: price + tax,
-      method: "subscription",
-    }).save();
-
     res.json({ message: "Subscription successful", status: "SUCCESS" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
