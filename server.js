@@ -1205,6 +1205,23 @@ const cleanupExpiredSubscriptions = async () => {
   console.log(`🧹 Expired subscriptions cleaned: ${result.deletedCount}`);
 };
 
+app.put("/subscriptions/:id/cancel", async (req, res) => {
+  const { id } = req.params;
+  const { userId, password } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    await Subscription.findByIdAndDelete(id);
+    res.json({ message: "Subscription cancelled", status: "SUCCESS" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 // ==========================
 // Set Expiry Reminder (3 Days) For Insurance Subscribtion
 // ==========================
