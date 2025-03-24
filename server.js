@@ -1205,19 +1205,41 @@ const cleanupExpiredSubscriptions = async () => {
   console.log(`🧹 Expired subscriptions cleaned: ${result.deletedCount}`);
 };
 
+// ==========================
+// Cancel Subscription
+// ==========================
 app.put("/subscriptions/:id/cancel", async (req, res) => {
-  const { id } = req.params;
-  const { userId, password } = req.body;
-
   try {
+    const { id } = req.params; // subscription ID
+    const { userId, password } = req.body;
+
+    if (!userId || !password) {
+      return res.status(400).json({ message: "User ID and password required", status: "FAILED" });
+    }
+
     const user = await User.findById(userId);
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Incorrect password" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }
+
+    const subscription = await Subscription.findById(id);
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found", status: "FAILED" });
+    }
+
+    if (!subscription.userId.equals(user._id)) {
+      return res.status(403).json({ message: "Unauthorized to cancel this subscription", status: "FAILED" });
     }
 
     await Subscription.findByIdAndDelete(id);
+
     res.json({ message: "Subscription cancelled", status: "SUCCESS" });
   } catch (err) {
+    console.error("❌ Cancel subscription error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
