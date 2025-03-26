@@ -383,7 +383,14 @@ app.post("/transfer", async (req, res) => {
     await recipient.save();
 
     // Store transaction
-    const transaction = new Transaction({ senderId, recipientId, amount });
+    const transaction = new Transaction({
+      type: "transfer",
+      senderId,
+      recipientId,
+      amount,
+      tax,
+      total: totalAmount,
+    });
     await transaction.save();
 
     // Update users with transaction history
@@ -483,60 +490,55 @@ app.get("/all-transactions/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Fetch transfers
-    const transfers = await Transaction.find({
-      $or: [{ senderId: userId }, { recipientId: userId }],
-    })
-      .populate("senderId", "name")
-      .populate("recipientId", "name")
-      .sort({ timestamp: -1 })
-      .lean();
+    const [transfers, subscriptions, requests] = await Promise.all([
+      Transaction.find({ $or: [{ senderId: userId }, { recipientId: userId }] })
+        .populate("senderId", "name")
+        .populate("recipientId", "name")
+        .sort({ timestamp: -1 })
+        .lean(),
 
-    const formattedTransfers = transfers.map((t) => ({
-      _id: t._id,
-      type: "transfer",
-      amount: t.amount,
-      sender: t.senderId,
-      recipient: t.recipientId,
-      tax: Math.floor(t.amount / 500) + 1,
-      total: t.amount + Math.floor(t.amount / 500) + 1,
-      timestamp: t.timestamp,
-    }));
+      Subscription.find({ userId }).sort({ createdAt: -1 }).lean(),
 
-    // Fetch insurance subscriptions
-    const insurances = await Subscription.find({ userId }).sort({ createdAt: -1 }).lean();
-    const formattedInsurances = insurances.map((s) => ({
-      _id: s._id,
-      type: "insurance",
-      amount: s.price,
-      tax: s.tax,
-      total: s.price + s.tax,
-      insuranceType: s.insuranceType,
-      planType: s.planType,
-      timestamp: s.createdAt,
-    }));
+      Request.find({ userId, approval: true }).sort({ createdAt: -1 }).lean(),
+    ]);
 
-    // Fetch agriculture requests
-    const requests = await Request.find({ userId }).sort({ createdAt: -1 }).lean();
-    const formattedRequests = requests
-      .filter((r) => r.approval) // only approved and paid
-      .map((r) => ({
+    const combined = [
+      ...transfers.map((t) => ({
+        _id: t._id,
+        type: "transfer",
+        amount: t.amount,
+        tax: Math.floor(t.amount / 500) + 1,
+        total: t.amount + Math.floor(t.amount / 500) + 1,
+        timestamp: t.timestamp,
+        sender: t.senderId,
+        recipient: t.recipientId,
+      })),
+      ...subscriptions.map((s) => ({
+        _id: s._id,
+        type: "insurance",
+        amount: s.price,
+        tax: s.tax,
+        total: s.price + s.tax,
+        insuranceType: s.insuranceType,
+        planType: s.planType,
+        timestamp: s.createdAt,
+      })),
+      ...requests.map((r) => ({
         _id: r._id,
         type: "requestAgriculture",
         amount: r.totalPrice,
+        tax: 0,
         total: r.totalPrice,
         seedType: r.seedType,
         dirtType: r.dirtType,
         timestamp: r.createdAt,
-      }));
+      })),
+    ];
 
-    const all = [...formattedTransfers, ...formattedInsurances, ...formattedRequests].sort(
-      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-    );
-
-    res.json({ transactions: all });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch transactions", error: error.message });
+    res.json({ transactions: combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) });
+  } catch (err) {
+    console.error("❌ All Transactions Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
