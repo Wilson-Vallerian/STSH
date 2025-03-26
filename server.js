@@ -383,14 +383,7 @@ app.post("/transfer", async (req, res) => {
     await recipient.save();
 
     // Store transaction
-    const transaction = new Transaction({
-      type: "transfer",
-      senderId,
-      recipientId,
-      amount,
-      tax,
-      total: totalAmount,
-    });
+    const transaction = new Transaction({ senderId, recipientId, amount });
     await transaction.save();
 
     // Update users with transaction history
@@ -486,59 +479,19 @@ app.get("/user/:id", async (req, res) => {
 // ==========================
 // Fetch Transaction History
 // ==========================
-app.get("/all-transactions/:userId", async (req, res) => {
+app.get("/transactions/:userId", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
+    const transactions = await Transaction.find({
+      $or: [{ senderId: userId }, { recipientId: userId }],
+    })
+      .populate("senderId", "name")
+      .populate("recipientId", "name")
+      .sort({ timestamp: -1 });
 
-    const [transfers, subscriptions, requests] = await Promise.all([
-      Transaction.find({ $or: [{ senderId: userId }, { recipientId: userId }] })
-        .populate("senderId", "name")
-        .populate("recipientId", "name")
-        .sort({ timestamp: -1 })
-        .lean(),
-
-      Subscription.find({ userId }).sort({ createdAt: -1 }).lean(),
-
-      Request.find({ userId, approval: true }).sort({ createdAt: -1 }).lean(),
-    ]);
-
-    const combined = [
-      ...transfers.map((t) => ({
-        _id: t._id,
-        type: "transfer",
-        amount: t.amount,
-        tax: Math.floor(t.amount / 500) + 1,
-        total: t.amount + Math.floor(t.amount / 500) + 1,
-        timestamp: t.timestamp,
-        sender: t.senderId,
-        recipient: t.recipientId,
-      })),
-      ...subscriptions.map((s) => ({
-        _id: s._id,
-        type: "insurance",
-        amount: s.price,
-        tax: s.tax,
-        total: s.price + s.tax,
-        insuranceType: s.insuranceType,
-        planType: s.planType,
-        timestamp: s.createdAt,
-      })),
-      ...requests.map((r) => ({
-        _id: r._id,
-        type: "requestAgriculture",
-        amount: r.totalPrice,
-        tax: 0,
-        total: r.totalPrice,
-        seedType: r.seedType,
-        dirtType: r.dirtType,
-        timestamp: r.createdAt,
-      })),
-    ];
-
-    res.json({ transactions: combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) });
-  } catch (err) {
-    console.error("❌ All Transactions Error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.json({ transactions });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
@@ -1140,16 +1093,6 @@ app.put("/requests/:requestId/pay", async (req, res) => {
 
     await user.save();
     await request.save();
-
-    await Transaction.create({
-      type: "requestAgriculture",
-      userId: user._id,
-      amount: request.totalPrice,
-      tax: 0,
-      total: request.totalPrice,
-      seedType: request.seedType,
-      dirtType: request.dirtType,
-    });    
 
     res.json({
       message: "Payment successful!",
