@@ -1200,8 +1200,60 @@ const cleanupExpiredSubscriptions = async () => {
   const oneMonthAgo = new Date();
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-  const result = await Subscription.deleteMany({ createdAt: { $lt: oneMonthAgo } });
-  console.log(`🧹 Expired subscriptions cleaned: ${result.deletedCount}`);
+  const expiredSubscriptions = await Subscription.find({
+    createdAt: { $lt: oneMonthAgo },
+    recurring: true,
+  });
+
+  let renewedCount = 0;
+
+  for (const sub of expiredSubscriptions) {
+    const user = await User.findById(sub.userId);
+    if (!user) continue;
+    const totalCost = sub.price + sub.tax;
+
+    if (user.stshToken < totalCost) {
+      await Notification.create({
+        userId: user._id,
+        title: "Renewal Failed ❌",
+        message: `Your recurring subscription for ${sub.insuranceType} (${sub.planType}) could not be renewed due to insufficient tokens.`,
+      });
+      continue;
+    }
+
+    user.stshToken -= totalCost;
+    await user.save();
+
+    await new Subscription({
+      userId: sub.userId,
+      email: sub.email,
+      insuranceType: sub.insuranceType,
+      planType: sub.planType,
+      price: sub.price,
+      tax: sub.tax,
+      recurring: true,
+    }).save();
+
+    await new CollectedTax({
+      userId: sub.userId,
+      email: sub.email,
+      method: "insurance",
+      taxCollected: sub.tax,
+      transactionAmount: sub.price,
+    }).save();
+
+    await Subscription.findByIdAndDelete(sub._id);
+
+    await Notification.create({
+      userId: user._id,
+      title: "Subscription Renewed ✅",
+      message: `Your ${sub.insuranceType} (${sub.planType}) subscription has been successfully renewed.`,
+    });
+
+    renewedCount++;
+  }
+
+  console.log(`Renewed ${renewedCount} recurring subscriptions.`);
 };
 
 // ==========================
