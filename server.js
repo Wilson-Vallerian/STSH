@@ -479,19 +479,64 @@ app.get("/user/:id", async (req, res) => {
 // ==========================
 // Fetch Transaction History
 // ==========================
-app.get("/transactions/:userId", async (req, res) => {
+app.get("/all-transactions/:userId", async (req, res) => {
   try {
-    const userId = req.params.userId;
-    const transactions = await Transaction.find({
+    const { userId } = req.params;
+
+    // Fetch transfers
+    const transfers = await Transaction.find({
       $or: [{ senderId: userId }, { recipientId: userId }],
     })
       .populate("senderId", "name")
       .populate("recipientId", "name")
-      .sort({ timestamp: -1 });
+      .sort({ timestamp: -1 })
+      .lean();
 
-    res.json({ transactions });
+    const formattedTransfers = transfers.map((t) => ({
+      _id: t._id,
+      type: "transfer",
+      amount: t.amount,
+      sender: t.senderId,
+      recipient: t.recipientId,
+      tax: Math.floor(t.amount / 500) + 1,
+      total: t.amount + Math.floor(t.amount / 500) + 1,
+      timestamp: t.timestamp,
+    }));
+
+    // Fetch insurance subscriptions
+    const insurances = await Subscription.find({ userId }).sort({ createdAt: -1 }).lean();
+    const formattedInsurances = insurances.map((s) => ({
+      _id: s._id,
+      type: "insurance",
+      amount: s.price,
+      tax: s.tax,
+      total: s.price + s.tax,
+      insuranceType: s.insuranceType,
+      planType: s.planType,
+      timestamp: s.createdAt,
+    }));
+
+    // Fetch agriculture requests
+    const requests = await Request.find({ userId }).sort({ createdAt: -1 }).lean();
+    const formattedRequests = requests
+      .filter((r) => r.approval) // only approved and paid
+      .map((r) => ({
+        _id: r._id,
+        type: "requestAgriculture",
+        amount: r.totalPrice,
+        total: r.totalPrice,
+        seedType: r.seedType,
+        dirtType: r.dirtType,
+        timestamp: r.createdAt,
+      }));
+
+    const all = [...formattedTransfers, ...formattedInsurances, ...formattedRequests].sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    res.json({ transactions: all });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Failed to fetch transactions", error: error.message });
   }
 });
 
