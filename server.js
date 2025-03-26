@@ -1139,6 +1139,16 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     await user.save();
     await request.save();
 
+    await Transaction.create({
+      type: "requestAgriculture",
+      userId: user._id,
+      amount: request.totalPrice,
+      tax: 0,
+      total: request.totalPrice,
+      seedType: request.seedType,
+      dirtType: request.dirtType,
+    });    
+
     res.json({
       message: "Payment successful!",
       status: "SUCCESS",
