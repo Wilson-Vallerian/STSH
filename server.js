@@ -1607,3 +1607,59 @@ app.delete("/notifications/:id", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+// ==========================
+// Top Up
+// ==========================
+app.post("/topup", async (req, res) => {
+  try {
+    const { userId, amount, password } = req.body;
+
+    const parsedAmount = parseInt(amount);
+    if (!userId || !amount || !password || isNaN(parsedAmount)) {
+      return res.status(400).json({ message: "Missing or invalid fields", status: "FAILED" });
+    }
+
+    if (parsedAmount < 10 || parsedAmount > 1000) {
+      return res.status(400).json({ message: "Amount must be between 10 and 1000 tokens", status: "FAILED" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }
+
+    // Increase user's token balance
+    user.stshToken += parsedAmount;
+    await user.save();
+
+    // Optional: Record as transaction
+    const transaction = new Transaction({
+      senderId: userId,
+      recipientId: userId,
+      amount: parsedAmount,
+      type: "topup",
+    });
+    await transaction.save();
+
+    // 🎉 Add notification
+    await Notification.create({
+      userId: userId,
+      title: "Top Up Successful 🎉",
+      message: `You successfully topped up ${parsedAmount} STSH Token! 🎉🎉🎉`,
+    });
+
+    res.json({
+      message: `Top-up of ${parsedAmount} STSH successful`,
+      status: "SUCCESS",
+      newBalance: user.stshToken,
+    });
+
+  } catch (err) {
+    console.error("Top-up error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
