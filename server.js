@@ -128,18 +128,18 @@ app.post("/register", async (req, res) => {
         message: `Hi ${newUser.name}, welcome to STSH! We're glad to have you.`,
       });
     } catch (notifErr) {
-      console.error("⚠️ Failed to create welcome notification:", notifErr.message);
+      console.error(
+        "⚠️ Failed to create welcome notification:",
+        notifErr.message
+      );
     }
-
   } catch (error) {
     console.error("Registration error:", error);
-    res
-      .status(500)
-      .json({
-        message: "Registration error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Registration error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -167,7 +167,9 @@ app.post("/login", async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     res.json({ message: "Login successful!", status: "SUCCESS", user });
@@ -235,7 +237,9 @@ app.put("/updatePassword", async (req, res) => {
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect current password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect current password", status: "FAILED" });
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -363,7 +367,8 @@ app.post("/transfer", async (req, res) => {
         .status(404)
         .json({ message: "Recipient not found", status: "FAILED" });
 
-    if (sender.password !== password) {
+    const isMatch = await bcrypt.compare(password, sender.password);
+    if (!isMatch) {
       return res
         .status(401)
         .json({ message: "Incorrect password", status: "FAILED" });
@@ -438,13 +443,15 @@ app.get("/user/search/:query", async (req, res) => {
   try {
     const query = req.params.query;
     const isObjectId = mongoose.Types.ObjectId.isValid(query);
-    
+
     const user = await User.findOne(
       isObjectId ? { _id: query } : { email: query.toLowerCase() }
     );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     res.json({
@@ -455,7 +462,13 @@ app.get("/user/search/:query", async (req, res) => {
       stshToken: user.stshToken,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -523,7 +536,9 @@ app.post("/applyLoan", async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     console.log("✅ User authenticated. Applying loan...");
@@ -587,8 +602,19 @@ app.post("/loan", async (req, res) => {
     const { userId, amount, password } = req.body;
     const loanAmount = parseInt(amount);
 
-    if (!userId || isNaN(loanAmount) || loanAmount < 100 || loanAmount > 50000 || !password) {
-      return res.status(400).json({ message: "Loan amount must be between 100 and 50,000 STSH Tokens.", status: "FAILED" });
+    if (
+      !userId ||
+      isNaN(loanAmount) ||
+      loanAmount < 100 ||
+      loanAmount > 50000 ||
+      !password
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: "Loan amount must be between 100 and 50,000 STSH Tokens.",
+          status: "FAILED",
+        });
     }
 
     const user = await User.findById(userId);
@@ -600,7 +626,9 @@ app.post("/loan", async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     // Check if user already has an active ("debt") loan
@@ -646,16 +674,22 @@ app.put("/loan/approve/:loanId", async (req, res) => {
     const loan = await Loan.findById(loanId);
 
     if (!loan) {
-      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Loan not found", status: "FAILED" });
     }
 
     if (loan.approval) {
-      return res.status(400).json({ message: "Loan is already approved", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Loan is already approved", status: "FAILED" });
     }
 
     const user = await User.findById(loan.userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     const tax = Math.floor(loan.amount * 0.05);
@@ -672,7 +706,7 @@ app.put("/loan/approve/:loanId", async (req, res) => {
       email: user.email,
       method: "loan",
       taxCollected: tax,
-      transactionAmount: loan.amount, 
+      transactionAmount: loan.amount,
     });
 
     await taxRecord.save();
@@ -686,12 +720,14 @@ app.put("/loan/approve/:loanId", async (req, res) => {
         name: user.name,
         email: user.email,
         stshToken: user.stshToken,
-        loanDebt: loan.amount, 
+        loanDebt: loan.amount,
       },
     });
   } catch (error) {
     console.error("Loan approval error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 });
 
@@ -704,32 +740,49 @@ app.put("/loan/pay/:loanId", async (req, res) => {
     const { loanId } = req.params;
     const { userId, paymentAmount, password } = req.body;
 
-    if (!loanId || !userId || !paymentAmount || paymentAmount <= 0 || !password) {
-      return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+    if (
+      !loanId ||
+      !userId ||
+      !paymentAmount ||
+      paymentAmount <= 0 ||
+      !password
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid input", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
-
 
     const loan = await Loan.findById(loanId);
     if (!loan) {
-      return res.status(404).json({ message: "Loan not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Loan not found", status: "FAILED" });
     }
 
     if (loan.status === "paid") {
-      return res.status(400).json({ message: "Loan is already paid", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Loan is already paid", status: "FAILED" });
     }
 
     if (user.stshToken < paymentAmount) {
-      return res.status(400).json({ message: "Not enough STSH to pay loan", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Not enough STSH to pay loan", status: "FAILED" });
     }
 
     user.stshToken -= paymentAmount;
@@ -753,7 +806,7 @@ app.put("/loan/pay/:loanId", async (req, res) => {
         name: user.name,
         email: user.email,
         stshToken: user.stshToken,
-        loan: loan.amount, 
+        loan: loan.amount,
       },
     });
   } catch (error) {
@@ -805,7 +858,9 @@ app.put("/user/role/:userId", async (req, res) => {
     // Find the target user
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     // Prevent changing another superAdmin's role
@@ -850,7 +905,16 @@ app.put("/user/role/:userId", async (req, res) => {
 // ==========================
 app.get("/users/filter", async (req, res) => {
   try {
-    const { loanMin, loanMax, stshMin, stshMax, totalMin, totalMax, email, id } = req.query;
+    const {
+      loanMin,
+      loanMax,
+      stshMin,
+      stshMax,
+      totalMin,
+      totalMax,
+      email,
+      id,
+    } = req.query;
 
     let matchCriteria = {};
 
@@ -863,12 +927,18 @@ app.get("/users/filter", async (req, res) => {
     if (totalMin || totalMax) {
       matchCriteria.$expr = {};
       let conditions = [];
-    
-      if (totalMin) conditions.push({ $gte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMin)] });
-      if (totalMax) conditions.push({ $lte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMax)] });
-    
+
+      if (totalMin)
+        conditions.push({
+          $gte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMin)],
+        });
+      if (totalMax)
+        conditions.push({
+          $lte: [{ $add: ["$stshToken", "$loan"] }, parseInt(totalMax)],
+        });
+
       matchCriteria.$expr = { $and: conditions };
-    }    
+    }
 
     if (email) {
       matchCriteria.email = { $regex: email, $options: "i" };
@@ -896,7 +966,11 @@ app.get("/users/filter", async (req, res) => {
                 input: "$userLoans",
                 as: "loan",
                 in: {
-                  $cond: [{ $eq: ["$$loan.status", "debt"] }, "$$loan.amount", 0],
+                  $cond: [
+                    { $eq: ["$$loan.status", "debt"] },
+                    "$$loan.amount",
+                    0,
+                  ],
                 },
               },
             },
@@ -904,7 +978,15 @@ app.get("/users/filter", async (req, res) => {
         },
       },
       {
-        $match: loanMin || loanMax ? { loan: { ...(loanMin && { $gte: parseInt(loanMin) }), ...(loanMax && { $lte: parseInt(loanMax) }) } } : {},
+        $match:
+          loanMin || loanMax
+            ? {
+                loan: {
+                  ...(loanMin && { $gte: parseInt(loanMin) }),
+                  ...(loanMax && { $lte: parseInt(loanMax) }),
+                },
+              }
+            : {},
       },
       {
         $project: {
@@ -917,7 +999,13 @@ app.get("/users/filter", async (req, res) => {
     res.json({ users });
   } catch (error) {
     console.error("Error filtering users:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -926,17 +1014,45 @@ app.get("/users/filter", async (req, res) => {
 // ==========================
 app.post("/requests", async (req, res) => {
   try {
-    const { userId, seedType, seedAmount, dirtType, dirtAmount, address, totalPrice } = req.body;
+    const {
+      userId,
+      seedType,
+      seedAmount,
+      dirtType,
+      dirtAmount,
+      address,
+      totalPrice,
+    } = req.body;
 
-    if (!userId || !seedType || !seedAmount || !dirtType || !dirtAmount || !address) {
-      return res.status(400).json({ message: "All fields are required.", status: "FAILED" });
+    if (
+      !userId ||
+      !seedType ||
+      !seedAmount ||
+      !dirtType ||
+      !dirtAmount ||
+      !address
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All fields are required.", status: "FAILED" });
     }
 
     const parsedSeedAmount = parseFloat(seedAmount);
     const parsedDirtAmount = parseFloat(dirtAmount);
 
-    if (isNaN(parsedSeedAmount) || isNaN(parsedDirtAmount) || parsedSeedAmount <= 0 || parsedDirtAmount <= 0) {
-      return res.status(400).json({ message: "Seed and Dirt amounts must be valid numbers greater than 0.", status: "FAILED" });
+    if (
+      isNaN(parsedSeedAmount) ||
+      isNaN(parsedDirtAmount) ||
+      parsedSeedAmount <= 0 ||
+      parsedDirtAmount <= 0
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "Seed and Dirt amounts must be valid numbers greater than 0.",
+          status: "FAILED",
+        });
     }
 
     const newRequest = new Request({
@@ -951,10 +1067,22 @@ app.post("/requests", async (req, res) => {
 
     await newRequest.save();
 
-    res.status(201).json({ message: "Request submitted successfully", status: "SUCCESS", request: newRequest });
+    res
+      .status(201)
+      .json({
+        message: "Request submitted successfully",
+        status: "SUCCESS",
+        request: newRequest,
+      });
   } catch (error) {
     console.error("Error submitting request:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -968,7 +1096,13 @@ app.get("/requests", async (req, res) => {
     res.json({ requests });
   } catch (error) {
     console.error("Error fetching requests:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -978,12 +1112,20 @@ app.get("/requests", async (req, res) => {
 app.get("/requests/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const userRequests = await Request.find({ userId }).sort({ timestamp: -1 }).populate("userId", "name email");
+    const userRequests = await Request.find({ userId })
+      .sort({ timestamp: -1 })
+      .populate("userId", "name email");
 
     res.json({ requests: userRequests });
   } catch (error) {
     console.error("Error fetching user requests:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -993,11 +1135,25 @@ app.get("/requests/:userId", async (req, res) => {
 app.put("/requests/:requestId", async (req, res) => {
   try {
     const { requestId } = req.params;
-    let { seedType, seedAmount, dirtType, dirtAmount, address, status, totalPrice, approval } = req.body;
+    let {
+      seedType,
+      seedAmount,
+      dirtType,
+      dirtAmount,
+      address,
+      status,
+      totalPrice,
+      approval,
+    } = req.body;
 
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status. Use 'approved' instead of 'accepted'", status: "FAILED" });
+      return res
+        .status(400)
+        .json({
+          message: "Invalid status. Use 'approved' instead of 'accepted'",
+          status: "FAILED",
+        });
     }
 
     const updatedData = {};
@@ -1012,14 +1168,21 @@ app.put("/requests/:requestId", async (req, res) => {
     if (totalPrice !== undefined) {
       totalPrice = parseFloat(totalPrice);
       if (isNaN(totalPrice) || totalPrice < 0) {
-        return res.status(400).json({ message: "Invalid totalPrice. Must be a positive number.", status: "FAILED" });
+        return res
+          .status(400)
+          .json({
+            message: "Invalid totalPrice. Must be a positive number.",
+            status: "FAILED",
+          });
       }
       updatedData.totalPrice = totalPrice;
     }
 
     const request = await Request.findById(requestId);
     if (!request) {
-      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Request not found", status: "FAILED" });
     }
 
     Object.assign(request, updatedData);
@@ -1028,10 +1191,20 @@ app.put("/requests/:requestId", async (req, res) => {
 
     await request.save();
 
-    res.json({ message: "Request updated successfully", status: "SUCCESS", request });
+    res.json({
+      message: "Request updated successfully",
+      status: "SUCCESS",
+      request,
+    });
   } catch (error) {
     console.error("🔴 Error updating request:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -1044,13 +1217,21 @@ app.delete("/requests/:requestId", async (req, res) => {
     const request = await Request.findByIdAndDelete(requestId);
 
     if (!request) {
-      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Request not found", status: "FAILED" });
     }
 
     res.json({ message: "Request deleted successfully", status: "SUCCESS" });
   } catch (error) {
     console.error("Error deleting request:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -1063,30 +1244,48 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     const { userId, password } = req.body;
 
     if (!userId || !password) {
-      return res.status(400).json({ message: "User ID and password are required.", status: "FAILED" });
+      return res
+        .status(400)
+        .json({
+          message: "User ID and password are required.",
+          status: "FAILED",
+        });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     const request = await Request.findById(requestId);
     if (!request) {
-      return res.status(404).json({ message: "Request not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Request not found", status: "FAILED" });
     }
 
     if (request.status !== "approved" || request.approval) {
-      return res.status(400).json({ message: "Request is not eligible for payment", status: "FAILED" });
+      return res
+        .status(400)
+        .json({
+          message: "Request is not eligible for payment",
+          status: "FAILED",
+        });
     }
 
     if (user.stshToken < request.totalPrice) {
-      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Insufficient balance", status: "FAILED" });
     }
 
     user.stshToken -= request.totalPrice;
@@ -1104,7 +1303,13 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     });
   } catch (error) {
     console.error("Payment error:", error);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Server error",
+        status: "FAILED",
+        error: error.message,
+      });
   }
 });
 
@@ -1113,28 +1318,53 @@ app.put("/requests/:requestId/pay", async (req, res) => {
 // ==========================
 app.post("/subscribe", async (req, res) => {
   try {
-    const { userId, email, insuranceType, planType, price, tax, password } = req.body;
+    const { userId, email, insuranceType, planType, price, tax, password } =
+      req.body;
 
-    if (!userId || !email || !insuranceType || !planType || !price || !password) {
-      return res.status(400).json({ message: "Missing required fields", status: "FAILED" });
+    if (
+      !userId ||
+      !email ||
+      !insuranceType ||
+      !planType ||
+      !price ||
+      !password
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Missing required fields", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
-    }    
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
+    }
 
     const totalCost = price + tax;
     if (user.stshToken < totalCost)
-      return res.status(400).json({ message: "Insufficient balance", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "Insufficient balance", status: "FAILED" });
 
-    const alreadySubscribed = await Subscription.findOne({ userId, insuranceType });
-    
+    const alreadySubscribed = await Subscription.findOne({
+      userId,
+      insuranceType,
+    });
+
     if (alreadySubscribed)
-      return res.status(400).json({ message: "You are already subscribed to this type of insurance.", status: "FAILED" });
+      return res
+        .status(400)
+        .json({
+          message: "You are already subscribed to this type of insurance.",
+          status: "FAILED",
+        });
 
     user.stshToken -= totalCost;
     await user.save();
@@ -1167,7 +1397,9 @@ app.post("/subscribe", async (req, res) => {
 app.get("/subscriptions/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const subscriptions = await Subscription.find({ userId }).sort({ createdAt: -1 });
+    const subscriptions = await Subscription.find({ userId }).sort({
+      createdAt: -1,
+    });
     res.json({ subscriptions });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1191,7 +1423,6 @@ app.put("/subscriptions/:id/toggleRecurring", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
-
 
 // ==========================
 // Remove Insurance Subscribtion
@@ -1269,26 +1500,39 @@ app.put("/subscriptions/:id/cancel", async (req, res) => {
     const { userId, password } = req.body;
 
     if (!userId || !password) {
-      return res.status(400).json({ message: "User ID and password required", status: "FAILED" });
+      return res
+        .status(400)
+        .json({ message: "User ID and password required", status: "FAILED" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     const subscription = await Subscription.findById(id);
     if (!subscription) {
-      return res.status(404).json({ message: "Subscription not found", status: "FAILED" });
+      return res
+        .status(404)
+        .json({ message: "Subscription not found", status: "FAILED" });
     }
 
     if (!subscription.userId.equals(user._id)) {
-      return res.status(403).json({ message: "Unauthorized to cancel this subscription", status: "FAILED" });
+      return res
+        .status(403)
+        .json({
+          message: "Unauthorized to cancel this subscription",
+          status: "FAILED",
+        });
     }
 
     await Subscription.findByIdAndDelete(id);
@@ -1306,7 +1550,9 @@ app.put("/subscriptions/:id/cancel", async (req, res) => {
 app.get("/notifications/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+    const notifications = await Notification.find({ userId }).sort({
+      createdAt: -1,
+    });
     res.json({ notifications });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1331,11 +1577,15 @@ const sendSubscriptionReminders = async () => {
     });
   }
 
-  console.log(`🔔 Sent ${subscriptions.length} subscription reminder notifications.`);
+  console.log(
+    `🔔 Sent ${subscriptions.length} subscription reminder notifications.`
+  );
 };
 
 cron.schedule("0 9 * * *", () => {
-  sendSubscriptionReminders().catch(err => console.error("Reminder error:", err));;
+  sendSubscriptionReminders().catch((err) =>
+    console.error("Reminder error:", err)
+  );
 });
 
 app.put("/notifications/:id/seen", async (req, res) => {
