@@ -15,6 +15,7 @@ const CollectedTax = require("./models/CollectedTax");
 const Subscription = require("./models/Subscription");
 const Notification = require("./models/Notification");
 const cron = require("node-cron");
+const bcrypt = require("bcryptjs");
 
 // Middleware
 app.use(express.json());
@@ -79,12 +80,14 @@ app.post("/register", async (req, res) => {
         .json({ message: "User already exists", status: "FAILED" });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10); // 10 = salt rounds
+
     // Create new user document
     const newUser = new User({
       name,
       email,
       dateOfBirth,
-      password,
+      password: hashedPassword,
       stshToken: 5,
       loan: 0,
       role: "user",
@@ -162,10 +165,9 @@ app.post("/login", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect password", status: "FAILED" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
     res.json({ message: "Login successful!", status: "SUCCESS", user });
@@ -231,13 +233,13 @@ app.put("/updatePassword", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== currentPassword) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect current password", status: "FAILED" });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect current password", status: "FAILED" });
     }
 
-    user.password = newPassword;
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedNewPassword;
     await user.save();
 
     res.json({
@@ -519,11 +521,9 @@ app.post("/applyLoan", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
-      console.log("❌ Incorrect password for user:", userId);
-      return res
-        .status(401)
-        .json({ message: "Incorrect password", status: "FAILED" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
     console.log("✅ User authenticated. Applying loan...");
@@ -598,10 +598,9 @@ app.post("/loan", async (req, res) => {
         .json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect password", status: "FAILED" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
     // Check if user already has an active ("debt") loan
@@ -714,9 +713,11 @@ app.put("/loan/pay/:loanId", async (req, res) => {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
+
 
     const loan = await Loan.findById(loanId);
     if (!loan) {
@@ -1070,7 +1071,8 @@ app.put("/requests/:requestId/pay", async (req, res) => {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
@@ -1120,8 +1122,10 @@ app.post("/subscribe", async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
 
-    if (user.password !== password)
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+    }    
 
     const totalCost = price + tax;
     if (user.stshToken < totalCost)
@@ -1273,7 +1277,8 @@ app.put("/subscriptions/:id/cancel", async (req, res) => {
       return res.status(404).json({ message: "User not found", status: "FAILED" });
     }
 
-    if (user.password !== password) {
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
