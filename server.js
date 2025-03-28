@@ -180,6 +180,31 @@ app.post("/login", async (req, res) => {
   }
 });
 
+app.post("/google-login", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required", status: "FAILED" });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: "FAILED" });
+    }
+
+    res.json({
+      message: "Google login successful",
+      status: "SUCCESS",
+      user,
+    });
+  } catch (err) {
+    console.error("Google login error:", err.message);
+    res.status(500).json({ message: "Server error", status: "FAILED", error: err.message });
+  }
+});
+
 // ==========================
 // Update User Details
 // ==========================
@@ -1390,7 +1415,7 @@ app.post("/subscribe", async (req, res) => {
 
     await Notification.create({
       userId,
-      title: "Subscription Confirmed ✅",
+      title: "Subscription Confirmed",
       message: `Thank you for subscribing to the ${planType} ${insuranceType} plan.`,
     });    
 
