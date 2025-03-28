@@ -1388,6 +1388,12 @@ app.post("/subscribe", async (req, res) => {
       tax,
     }).save();
 
+    await Notification.create({
+      userId,
+      title: "Subscription Confirmed ✅",
+      message: `Thank you for subscribing to the ${planType} ${insuranceType} plan.`,
+    });    
+
     res.json({ message: "Subscription successful", status: "SUCCESS" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1632,11 +1638,9 @@ app.post("/topup", async (req, res) => {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    // Increase user's token balance
     user.stshToken += parsedAmount;
     await user.save();
 
-    // Optional: Record as transaction
     const transaction = new Transaction({
       senderId: userId,
       recipientId: userId,
@@ -1645,7 +1649,6 @@ app.post("/topup", async (req, res) => {
     });
     await transaction.save();
 
-    // 🎉 Add notification
     await Notification.create({
       userId: userId,
       title: "Top Up Successful 🎉",
