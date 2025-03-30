@@ -16,6 +16,8 @@ const Subscription = require("./models/Subscription");
 const Notification = require("./models/Notification");
 const cron = require("node-cron");
 const bcrypt = require("bcryptjs");
+const OTPrequest = require("./models/OTPrequest");
+const nodemailer = require("nodemailer");
 
 // Middleware
 app.use(express.json());
@@ -180,29 +182,74 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.post("/google-login", async (req, res) => {
+// ==========================
+// OTP
+// ==========================
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+app.post("/request-otp", async (req, res) => {
   try {
-    const { email } = req.body;
+    const { name, email, dateOfBirth, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ message: "Missing required fields" });
 
-    if (!email) {
-      return res.status(400).json({ message: "Email is required", status: "FAILED" });
-    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const otp = generateOTP();
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found", status: "FAILED" });
-    }
+    const tempUser = new User({ name, email, dateOfBirth, password }); // not saved
+    const fakeUserId = new mongoose.Types.ObjectId(); // create temp user ID
 
-    res.json({
-      message: "Google login successful",
-      status: "SUCCESS",
-      user,
+    await OTPrequest.create({ userId: fakeUserId, otp });
+
+    // send email
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_FROM,
+        pass: process.env.EMAIL_PASS,
+      },
     });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: "vallerianwilson@gmail.com", // hardcoded or use email
+      subject: "Your OTP Code",
+      text: `Your OTP is ${otp}. It will expire in 3 minutes.`,
+    });
+
+    res.json({ message: "OTP sent", status: "PENDING", tempId: fakeUserId });
   } catch (err) {
-    console.error("Google login error:", err.message);
-    res.status(500).json({ message: "Server error", status: "FAILED", error: err.message });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
+});
+
+app.post("/verify-otp", async (req, res) => {
+  const { tempId, otp, name, email, dateOfBirth, password } = req.body;
+
+  const validOTP = await OTPrequest.findOne({ userId: tempId, otp });
+  if (!validOTP) {
+    return res.status(400).json({ message: "Invalid or expired OTP" });
+  }
+
+  // Create the actual user
+  const user = new User({ _id: tempId, name, email, dateOfBirth, password });
+  await user.save();
+
+  // Delete OTP
+  await OTPrequest.deleteOne({ _id: validOTP._id });
+
+  res.json({
+    message: "Registration successful",
+    status: "SUCCESS",
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+  });
 });
 
 // ==========================
@@ -1412,12 +1459,6 @@ app.post("/subscribe", async (req, res) => {
       price,
       tax,
     }).save();
-
-    await Notification.create({
-      userId,
-      title: "Subscription Confirmed",
-      message: `Thank you for subscribing to the ${planType} ${insuranceType} plan.`,
-    });    
 
     res.json({ message: "Subscription successful", status: "SUCCESS" });
   } catch (err) {
