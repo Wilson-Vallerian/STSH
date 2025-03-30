@@ -59,9 +59,9 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// User Registration
+// User Registration (Not in use)
 // ==========================
-app.post("/register", async (req, res) => {
+app.post("/register", async (req, res) => {  
   try {
     let { name, email, dateOfBirth, password } = req.body;
 
@@ -148,37 +148,63 @@ app.post("/register", async (req, res) => {
 // ==========================
 // User Login
 // ==========================
+
 app.post("/login", async (req, res) => {
   try {
     let { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required", status: "FAILED" });
+      return res.status(400).json({
+        message: "Email and password are required",
+        status: "FAILED",
+      });
     }
 
     email = email.toLowerCase();
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res
-        .status(401)
-        .json({ message: "User not found", status: "FAILED" });
+      return res.status(401).json({ message: "User not found", status: "FAILED" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect password", status: "FAILED" });
+      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
 
-    res.json({ message: "Login successful!", status: "SUCCESS", user });
+    const otp = generateOTP();
+    await OTPrequest.deleteMany({ email });
+    await OTPrequest.create({ userId: user._id, email, otp });
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_FROM,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"StartShield App" <${process.env.EMAIL_FROM}>`,
+      to: email,
+      subject: "StartShield Login OTP",
+      html: `<p>Your login OTP is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
+    });
+
+    res.json({
+      message: "OTP sent to your email",
+      status: "OTP_REQUIRED",
+      tempId: user._id,
+      name: user.name,
+      email: user.email,
+    });
+
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Login error", status: "FAILED", error: error.message });
+    res.status(500).json({
+      message: "Login error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -208,7 +234,6 @@ app.post("/register/request-otp", async (req, res) => {
     await OTPrequest.deleteMany({ email });
     await OTPrequest.create({ userId: fakeUserId, email, otp });
 
-    // ✉️ Send OTP via email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -258,7 +283,6 @@ app.post("/verify-otp", async (req, res) => {
 
   await user.save();
 
-  // ✅ Generate QR code with user ID
   const qrCodePath = path.join(__dirname, "uploads", `${user._id}.png`);
   await QRCode.toFile(qrCodePath, user._id.toString());
 
@@ -271,10 +295,8 @@ app.post("/verify-otp", async (req, res) => {
   user.qrCodeUrl = qrCodeUrl;
   await user.save();
 
-  // ✅ Cleanup OTP
   await OTPrequest.deleteOne({ _id: validOTP._id });
 
-  // ✅ Send Welcome Notification
   try {
     await Notification.create({
       userId: user._id,
@@ -294,6 +316,34 @@ app.post("/verify-otp", async (req, res) => {
       email: user.email,
       qrCodeUrl: user.qrCodeUrl,
       stshToken: user.stshToken,
+    },
+  });
+});
+
+app.post("/verify-login-otp", async (req, res) => {
+  const { tempId, otp } = req.body;
+
+  const validOTP = await OTPrequest.findOne({ userId: tempId, otp });
+  if (!validOTP) {
+    return res.status(400).json({ message: "Invalid or expired OTP" });
+  }
+
+  const user = await User.findById(tempId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  await OTPrequest.deleteOne({ _id: validOTP._id });
+
+  res.json({
+    message: "Login successful",
+    status: "SUCCESS",
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      stshToken: user.stshToken,
+      qrCodeUrl: user.qrCodeUrl,
     },
   });
 });
