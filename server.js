@@ -189,39 +189,47 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-app.post("/request-otp", async (req, res) => {
+app.post("/register/request-otp", async (req, res) => {
   try {
     const { name, email, dateOfBirth, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: "Missing required fields" });
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const otp = generateOTP();
-
-    const tempUser = new User({ name, email, dateOfBirth, password }); // not saved
-    const fakeUserId = new mongoose.Types.ObjectId(); // create temp user ID
+    const fakeUserId = new mongoose.Types.ObjectId();
 
     await OTPrequest.create({ userId: fakeUserId, otp });
 
-    // send email
+    // Email sender
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_FROM,
+        user: "vallerianWilson@gmail.com",
         pass: process.env.EMAIL_PASS,
       },
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: "vallerianwilson@gmail.com", // hardcoded or use email
-      subject: "Your OTP Code",
-      text: `Your OTP is ${otp}. It will expire in 3 minutes.`,
+      from: "vallerianWilson@gmail.com",
+      to: email, // send to user's email instead of hardcoded
+      subject: "StartShield OTP Verification Code",
+      html: `<p>Your OTP code is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
     });
 
-    res.json({ message: "OTP sent", status: "PENDING", tempId: fakeUserId });
+    res.json({
+      message: "OTP sent",
+      status: "PENDING",
+      tempId: fakeUserId,
+    });
   } catch (err) {
+    console.error("OTP Error:", err.message);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
