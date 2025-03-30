@@ -218,7 +218,7 @@ app.post("/register/request-otp", async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: "StartShield App",
+      from: `"StartShield App" <vallerianWilson@gmail.com>`,
       to: email,
       subject: "StartShield OTP Verification Code",
       html: `<p>Your OTP code is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
@@ -235,7 +235,6 @@ app.post("/register/request-otp", async (req, res) => {
   }
 });
 
-
 app.post("/verify-otp", async (req, res) => {
   const { tempId, otp, name, email, dateOfBirth, password } = req.body;
 
@@ -244,10 +243,47 @@ app.post("/verify-otp", async (req, res) => {
     return res.status(400).json({ message: "Invalid or expired OTP" });
   }
 
-  const user = new User({ _id: tempId, name, email, dateOfBirth, password });
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = new User({
+    _id: tempId,
+    name,
+    email: email.toLowerCase(),
+    dateOfBirth,
+    password: hashedPassword,
+    stshToken: 5,
+    loan: 0,
+    role: "user",
+  });
+
   await user.save();
 
+  // ✅ Generate QR code with user ID
+  const qrCodePath = path.join(__dirname, "uploads", `${user._id}.png`);
+  await QRCode.toFile(qrCodePath, user._id.toString());
+
+  const qrCodeFileName = `${user._id}-qrcode.png`;
+  const qrCodeStoragePath = path.join(__dirname, "uploads", qrCodeFileName);
+  fs.renameSync(qrCodePath, qrCodeStoragePath);
+
+  const qrCodeUrl = `${req.protocol}://${req.get("host")}/uploads/${qrCodeFileName}`;
+
+  user.qrCodeUrl = qrCodeUrl;
+  await user.save();
+
+  // ✅ Cleanup OTP
   await OTPrequest.deleteOne({ _id: validOTP._id });
+
+  // ✅ Send Welcome Notification
+  try {
+    await Notification.create({
+      userId: user._id,
+      title: "Welcome 🎉",
+      message: `Hi ${user.name}, welcome to STSH! We're glad to have you.`,
+    });
+  } catch (notifErr) {
+    console.error("⚠️ Failed to create welcome notification:", notifErr.message);
+  }
 
   res.json({
     message: "Registration successful",
@@ -256,6 +292,8 @@ app.post("/verify-otp", async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      qrCodeUrl: user.qrCodeUrl,
+      stshToken: user.stshToken,
     },
   });
 });
