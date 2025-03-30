@@ -151,6 +151,7 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     let { email, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     if (!email || !password) {
       return res.status(400).json({
@@ -166,7 +167,7 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "User not found", status: "FAILED" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(hashedPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
     }
