@@ -205,10 +205,7 @@ app.post("/register/request-otp", async (req, res) => {
     const otp = generateOTP();
     const fakeUserId = new mongoose.Types.ObjectId();
 
-    // 🧹 Delete any previous OTP request for this email
     await OTPrequest.deleteMany({ email });
-
-    // 🆕 Create new OTP request
     await OTPrequest.create({ userId: fakeUserId, email, otp });
 
     // ✉️ Send OTP via email
@@ -216,12 +213,12 @@ app.post("/register/request-otp", async (req, res) => {
       service: "gmail",
       auth: {
         user: "vallerianWilson@gmail.com",
-        pass: "clql jqgq hdjm ccxp", // Consider using process.env for safety
+        pass: "clql jqgq hdjm ccxp", 
       },
     });
 
     await transporter.sendMail({
-      from: "vallerianWilson@gmail.com",
+      from: "StartShield App",
       to: email,
       subject: "StartShield OTP Verification Code",
       html: `<p>Your OTP code is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
