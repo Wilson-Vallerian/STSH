@@ -212,13 +212,13 @@ app.post("/register/request-otp", async (req, res) => {
       service: "gmail",
       auth: {
         user: "vallerianWilson@gmail.com",
-        pass: process.env.EMAIL_PASS,
+        pass: "clql jqgq hdjm ccxp",
       },
     });
 
     await transporter.sendMail({
       from: "vallerianWilson@gmail.com",
-      to: email, // send to user's email instead of hardcoded
+      to: email,
       subject: "StartShield OTP Verification Code",
       html: `<p>Your OTP code is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
     });
@@ -242,11 +242,9 @@ app.post("/verify-otp", async (req, res) => {
     return res.status(400).json({ message: "Invalid or expired OTP" });
   }
 
-  // Create the actual user
   const user = new User({ _id: tempId, name, email, dateOfBirth, password });
   await user.save();
 
-  // Delete OTP
   await OTPrequest.deleteOne({ _id: validOTP._id });
 
   res.json({
