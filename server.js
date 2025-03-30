@@ -205,14 +205,18 @@ app.post("/register/request-otp", async (req, res) => {
     const otp = generateOTP();
     const fakeUserId = new mongoose.Types.ObjectId();
 
-    await OTPrequest.create({ userId: fakeUserId, otp });
+    // 🧹 Delete any previous OTP request for this email
+    await OTPrequest.deleteMany({ email });
 
-    // Email sender
+    // 🆕 Create new OTP request
+    await OTPrequest.create({ userId: fakeUserId, email, otp });
+
+    // ✉️ Send OTP via email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: "vallerianWilson@gmail.com",
-        pass: "clql jqgq hdjm ccxp",
+        pass: "clql jqgq hdjm ccxp", // Consider using process.env for safety
       },
     });
 
@@ -233,6 +237,7 @@ app.post("/register/request-otp", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 app.post("/verify-otp", async (req, res) => {
   const { tempId, otp, name, email, dateOfBirth, password } = req.body;
