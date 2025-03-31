@@ -519,14 +519,14 @@ if (!fs.existsSync(UPLOADS_FOLDER)) {
   fs.mkdirSync(UPLOADS_FOLDER, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOADS_FOLDER);
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, UPLOADS_FOLDER);
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, `${Date.now()}-${file.originalname}`);
+//   },
+// });
 
 // Filter File (Allow only images)
 const fileFilter = (req, file, cb) => {
