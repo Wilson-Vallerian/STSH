@@ -7,6 +7,8 @@ const agricultureRequestSchema = Joi.object({
   dirtType: Joi.string().required(),
   dirtAmount: Joi.number().positive().required(),
   address: Joi.string().required(),
+  approval: Joi.boolean().optional(),
+  status: Joi.string().valid("pending", "approved", "rejected").optional(),
 });
 
 const payRequestSchema = Joi.object({
