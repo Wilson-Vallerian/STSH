@@ -6,7 +6,7 @@ const subscriptionSchema = Joi.object({
   insuranceType: Joi.string().required(),
   planType: Joi.string().required(),
   price: Joi.number().min(1).required(),
-  tax: Joi.number().min().required(),
+  tax: Joi.number().min(1).required(),
   password: Joi.string().required(),
 });
 
