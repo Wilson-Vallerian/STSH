@@ -409,6 +409,7 @@ app.post("/verify-login-otp", loginLimiter, async (req, res) => {
       email: user.email,
       stshToken: user.stshToken,
       qrCodeUrl: user.qrCodeUrl,
+      role: user.role,
     },
   });
 });
