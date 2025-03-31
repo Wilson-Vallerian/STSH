@@ -569,7 +569,6 @@ app.put(
           .json({ message: "No file uploaded.", status: "FAILED" });
       }
 
-      // Use Cloudinary file URL
       const fileUrl = req.file.path;
 
       user.photoUrl = fileUrl;
