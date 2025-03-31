@@ -18,6 +18,39 @@ const cron = require("node-cron");
 const bcrypt = require("bcryptjs");
 const OTPrequest = require("./models/OTPrequest");
 const nodemailer = require("nodemailer");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const mongoSanitize = require("express-mongo-sanitize");
+const xss = require("xss-clean");
+const {
+  loginSchema,
+  registerSchema,
+  otpVerifySchema,
+  registrationOtpVerifySchema,
+} = require("./validators/authValidator");
+const {
+  applyLoanSchema,
+  loanPaymentSchema,
+} = require("./validators/loanValidator");
+const {
+  agricultureRequestSchema,
+  payRequestSchema,
+} = require("./validators/requestValidator");
+const {
+  subscriptionSchema,
+  cancelSubscriptionSchema,
+} = require("./validators/subscriptionValidator");
+const { topupSchema } = require("./validators/topupValidator");
+const { transferSchema } = require("./validators/transactionValidator");
+const {
+  updateNameSchema,
+  updatePasswordSchema,
+} = require("./validators/userValidator");
+
+// Security
+app.use(mongoSanitize());
+app.use(xss());
+app.use(helmet());
 
 // Middleware
 app.use(express.json());
@@ -58,10 +91,21 @@ app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
 
+// Prevent Bruteforce
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    status: "FAILED",
+    message: "Too many login attempts, please try again later.",
+  },
+});
+
 // ==========================
 // User Registration (Not in use)
 // ==========================
-app.post("/register", async (req, res) => {  
+app.post("/register", async (req, res) => {
   try {
     let { name, email, dateOfBirth, password } = req.body;
 
@@ -148,27 +192,32 @@ app.post("/register", async (req, res) => {
 // ==========================
 // User Login
 // ==========================
-app.post("/login", async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
   try {
-    let { email, password } = req.body;
-
-    if (!email || !password) {
+    const { error } = loginSchema.validate(req.body);
+    if (error) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: error.details[0].message,
         status: "FAILED",
       });
     }
+
+    let { email, password } = req.body;
 
     email = email.toLowerCase();
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(401).json({ message: "User not found", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "User not found", status: "FAILED" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     const otp = generateOTP();
@@ -178,8 +227,8 @@ app.post("/login", async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "vallerianWilson@gmail.com",
-        pass: "clql jqgq hdjm ccxp",
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
@@ -197,7 +246,6 @@ app.post("/login", async (req, res) => {
       name: user.name,
       email: user.email,
     });
-
   } catch (error) {
     res.status(500).json({
       message: "Login error",
@@ -214,13 +262,14 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-app.post("/register/request-otp", async (req, res) => {
+app.post("/register/request-otp", loginLimiter, async (req, res) => {
   try {
-    const { name, email, dateOfBirth, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
+    const { error } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
     }
+
+    const { name, email, dateOfBirth, password } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -236,13 +285,13 @@ app.post("/register/request-otp", async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "vallerianWilson@gmail.com",
-        pass: "clql jqgq hdjm ccxp", 
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
     await transporter.sendMail({
-      from: `"StartShield App" <vallerianWilson@gmail.com>`,
+      from: `"StartShield App" <${process.env.EMAIL_FROM}>`,
       to: email,
       subject: "StartShield OTP Verification Code",
       html: `<p>Your OTP code is: <strong>${otp}</strong></p><p>It will expire in 3 minutes.</p>`,
@@ -259,7 +308,14 @@ app.post("/register/request-otp", async (req, res) => {
   }
 });
 
-app.post("/verify-otp", async (req, res) => {
+app.post("/verify-otp", loginLimiter, async (req, res) => {
+  const { error } = registrationOtpVerifySchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ message: error.details[0].message, status: "FAILED" });
+  }
+
   const { tempId, otp, name, email, dateOfBirth, password } = req.body;
 
   const validOTP = await OTPrequest.findOne({ userId: tempId, otp });
@@ -303,7 +359,10 @@ app.post("/verify-otp", async (req, res) => {
       message: `Hi ${user.name}, welcome to STSH! We're glad to have you.`,
     });
   } catch (notifErr) {
-    console.error("⚠️ Failed to create welcome notification:", notifErr.message);
+    console.error(
+      "⚠️ Failed to create welcome notification:",
+      notifErr.message
+    );
   }
 
   res.json({
@@ -319,7 +378,14 @@ app.post("/verify-otp", async (req, res) => {
   });
 });
 
-app.post("/verify-login-otp", async (req, res) => {
+app.post("/verify-login-otp", loginLimiter, async (req, res) => {
+  const { error } = otpVerifySchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ message: error.details[0].message, status: "FAILED" });
+  }
+
   const { tempId, otp } = req.body;
 
   const validOTP = await OTPrequest.findOne({ userId: tempId, otp });
@@ -352,13 +418,14 @@ app.post("/verify-login-otp", async (req, res) => {
 // ==========================
 app.put("/updateName", async (req, res) => {
   try {
-    const { userId, newName } = req.body;
-
-    if (!userId || !newName) {
+    const { error } = updateNameSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ message: "Missing userId or newName", status: "FAILED" });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+
+    const { userId, newName } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -387,13 +454,14 @@ app.put("/updateName", async (req, res) => {
 // ==========================
 app.put("/updatePassword", async (req, res) => {
   try {
-    const { userId, currentPassword, newPassword } = req.body;
-
-    if (!userId || !currentPassword || !newPassword) {
+    const { error } = updatePasswordSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ message: "Missing required fields", status: "FAILED" });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+    
+    const { userId, currentPassword, newPassword } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -515,11 +583,14 @@ module.exports = app;
 // Transfer STSH Tokens
 // ==========================
 app.post("/transfer", async (req, res) => {
-  const { senderId, recipientId, amount, password } = req.body;
-
-  if (!senderId || !recipientId || !amount || amount <= 0 || !password) {
-    return res.status(400).json({ message: "Invalid input", status: "FAILED" });
+  const { error } = transferSchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ message: error.details[0].message, status: "FAILED" });
   }
+
+  const { senderId, recipientId, amount, password } = req.body;
 
   try {
     const sender = await User.findById(senderId);
@@ -629,13 +700,11 @@ app.get("/user/search/:query", async (req, res) => {
       stshToken: user.stshToken,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -684,14 +753,14 @@ app.post("/applyLoan", async (req, res) => {
   try {
     console.log("🔵 Loan request received:", req.body);
 
-    const { userId, amount, password } = req.body;
-
-    if (!userId || !amount || amount <= 0 || !password) {
-      console.log("❌ Validation failed: Missing fields or invalid amount.");
+    const { error } = applyLoanSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ message: "Invalid input", status: "FAILED" });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+
+    const { userId, amount, password } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -776,12 +845,10 @@ app.post("/loan", async (req, res) => {
       loanAmount > 50000 ||
       !password
     ) {
-      return res
-        .status(400)
-        .json({
-          message: "Loan amount must be between 100 and 50,000 STSH Tokens.",
-          status: "FAILED",
-        });
+      return res.status(400).json({
+        message: "Loan amount must be between 100 and 50,000 STSH Tokens.",
+        status: "FAILED",
+      });
     }
 
     const user = await User.findById(userId);
@@ -904,6 +971,16 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 // ==========================
 app.put("/loan/pay/:loanId", async (req, res) => {
   try {
+    const { error } = loanPaymentSchema.validate({
+      ...req.body,
+      loanId: req.params.loanId,
+    });
+    if (error) {
+      return res
+        .status(400)
+        .json({ message: error.details[0].message, status: "FAILED" });
+    }
+
     const { loanId } = req.params;
     const { userId, paymentAmount, password } = req.body;
 
@@ -1166,13 +1243,11 @@ app.get("/users/filter", async (req, res) => {
     res.json({ users });
   } catch (error) {
     console.error("Error filtering users:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1181,6 +1256,13 @@ app.get("/users/filter", async (req, res) => {
 // ==========================
 app.post("/requests", async (req, res) => {
   try {
+    const { error } = agricultureRequestSchema.validate(req.body);
+    if (error) {
+      return res
+        .status(400)
+        .json({ message: error.details[0].message, status: "FAILED" });
+    }
+
     const {
       userId,
       seedType,
@@ -1191,36 +1273,8 @@ app.post("/requests", async (req, res) => {
       totalPrice,
     } = req.body;
 
-    if (
-      !userId ||
-      !seedType ||
-      !seedAmount ||
-      !dirtType ||
-      !dirtAmount ||
-      !address
-    ) {
-      return res
-        .status(400)
-        .json({ message: "All fields are required.", status: "FAILED" });
-    }
-
     const parsedSeedAmount = parseFloat(seedAmount);
     const parsedDirtAmount = parseFloat(dirtAmount);
-
-    if (
-      isNaN(parsedSeedAmount) ||
-      isNaN(parsedDirtAmount) ||
-      parsedSeedAmount <= 0 ||
-      parsedDirtAmount <= 0
-    ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Seed and Dirt amounts must be valid numbers greater than 0.",
-          status: "FAILED",
-        });
-    }
 
     const newRequest = new Request({
       userId,
@@ -1234,22 +1288,18 @@ app.post("/requests", async (req, res) => {
 
     await newRequest.save();
 
-    res
-      .status(201)
-      .json({
-        message: "Request submitted successfully",
-        status: "SUCCESS",
-        request: newRequest,
-      });
+    res.status(201).json({
+      message: "Request submitted successfully",
+      status: "SUCCESS",
+      request: newRequest,
+    });
   } catch (error) {
     console.error("Error submitting request:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1263,13 +1313,11 @@ app.get("/requests", async (req, res) => {
     res.json({ requests });
   } catch (error) {
     console.error("Error fetching requests:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1286,13 +1334,11 @@ app.get("/requests/:userId", async (req, res) => {
     res.json({ requests: userRequests });
   } catch (error) {
     console.error("Error fetching user requests:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1315,12 +1361,10 @@ app.put("/requests/:requestId", async (req, res) => {
 
     const validStatuses = ["pending", "approved", "rejected"];
     if (status && !validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({
-          message: "Invalid status. Use 'approved' instead of 'accepted'",
-          status: "FAILED",
-        });
+      return res.status(400).json({
+        message: "Invalid status. Use 'approved' instead of 'accepted'",
+        status: "FAILED",
+      });
     }
 
     const updatedData = {};
@@ -1335,12 +1379,10 @@ app.put("/requests/:requestId", async (req, res) => {
     if (totalPrice !== undefined) {
       totalPrice = parseFloat(totalPrice);
       if (isNaN(totalPrice) || totalPrice < 0) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid totalPrice. Must be a positive number.",
-            status: "FAILED",
-          });
+        return res.status(400).json({
+          message: "Invalid totalPrice. Must be a positive number.",
+          status: "FAILED",
+        });
       }
       updatedData.totalPrice = totalPrice;
     }
@@ -1365,13 +1407,11 @@ app.put("/requests/:requestId", async (req, res) => {
     });
   } catch (error) {
     console.error("🔴 Error updating request:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1392,13 +1432,11 @@ app.delete("/requests/:requestId", async (req, res) => {
     res.json({ message: "Request deleted successfully", status: "SUCCESS" });
   } catch (error) {
     console.error("Error deleting request:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1407,17 +1445,15 @@ app.delete("/requests/:requestId", async (req, res) => {
 // ==========================
 app.put("/requests/:requestId/pay", async (req, res) => {
   try {
-    const { requestId } = req.params;
-    const { userId, password } = req.body;
-
-    if (!userId || !password) {
+    const { error } = payRequestSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({
-          message: "User ID and password are required.",
-          status: "FAILED",
-        });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+
+    const { requestId } = req.params;
+    const { userId, password } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -1441,12 +1477,10 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     }
 
     if (request.status !== "approved" || request.approval) {
-      return res
-        .status(400)
-        .json({
-          message: "Request is not eligible for payment",
-          status: "FAILED",
-        });
+      return res.status(400).json({
+        message: "Request is not eligible for payment",
+        status: "FAILED",
+      });
     }
 
     if (user.stshToken < request.totalPrice) {
@@ -1470,13 +1504,11 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     });
   } catch (error) {
     console.error("Payment error:", error);
-    res
-      .status(500)
-      .json({
-        message: "Server error",
-        status: "FAILED",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error",
+      status: "FAILED",
+      error: error.message,
+    });
   }
 });
 
@@ -1485,21 +1517,15 @@ app.put("/requests/:requestId/pay", async (req, res) => {
 // ==========================
 app.post("/subscribe", async (req, res) => {
   try {
-    const { userId, email, insuranceType, planType, price, tax, password } =
-      req.body;
-
-    if (
-      !userId ||
-      !email ||
-      !insuranceType ||
-      !planType ||
-      !price ||
-      !password
-    ) {
+    const { error } = subscriptionSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ message: "Missing required fields", status: "FAILED" });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+
+    const { userId, email, insuranceType, planType, price, tax, password } =
+      req.body;
 
     const user = await User.findById(userId);
     if (!user)
@@ -1526,12 +1552,10 @@ app.post("/subscribe", async (req, res) => {
     });
 
     if (alreadySubscribed)
-      return res
-        .status(400)
-        .json({
-          message: "You are already subscribed to this type of insurance.",
-          status: "FAILED",
-        });
+      return res.status(400).json({
+        message: "You are already subscribed to this type of insurance.",
+        status: "FAILED",
+      });
 
     user.stshToken -= totalCost;
     await user.save();
@@ -1663,14 +1687,15 @@ const cleanupExpiredSubscriptions = async () => {
 // ==========================
 app.put("/subscriptions/:id/cancel", async (req, res) => {
   try {
-    const { id } = req.params;
-    const { userId, password } = req.body;
-
-    if (!userId || !password) {
+    const { error } = cancelSubscriptionSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ message: "User ID and password required", status: "FAILED" });
+        .json({ message: error.details[0].message, status: "FAILED" });
     }
+
+    const { id } = req.params;
+    const { userId, password } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -1694,12 +1719,10 @@ app.put("/subscriptions/:id/cancel", async (req, res) => {
     }
 
     if (!subscription.userId.equals(user._id)) {
-      return res
-        .status(403)
-        .json({
-          message: "Unauthorized to cancel this subscription",
-          status: "FAILED",
-        });
+      return res.status(403).json({
+        message: "Unauthorized to cancel this subscription",
+        status: "FAILED",
+      });
     }
 
     await Subscription.findByIdAndDelete(id);
@@ -1780,23 +1803,28 @@ app.delete("/notifications/:id", async (req, res) => {
 // ==========================
 app.post("/topup", async (req, res) => {
   try {
+    const { error } = topupSchema.validate(req.body);
+    if (error) {
+      return res
+        .status(400)
+        .json({ message: error.details[0].message, status: "FAILED" });
+    }
+
     const { userId, amount, password } = req.body;
 
     const parsedAmount = parseInt(amount);
-    if (!userId || !amount || !password || isNaN(parsedAmount)) {
-      return res.status(400).json({ message: "Missing or invalid fields", status: "FAILED" });
-    }
-
-    if (parsedAmount < 10 || parsedAmount > 1000) {
-      return res.status(400).json({ message: "Amount must be between 10 and 1000 tokens", status: "FAILED" });
-    }
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found", status: "FAILED" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ message: "User not found", status: "FAILED" });
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      return res.status(401).json({ message: "Incorrect password", status: "FAILED" });
+      return res
+        .status(401)
+        .json({ message: "Incorrect password", status: "FAILED" });
     }
 
     user.stshToken += parsedAmount;
@@ -1821,7 +1849,6 @@ app.post("/topup", async (req, res) => {
       status: "SUCCESS",
       newBalance: user.stshToken,
     });
-
   } catch (err) {
     console.error("Top-up error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
