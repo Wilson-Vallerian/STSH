@@ -18,10 +18,10 @@ const registerSchema = Joi.object({
     }),
 });
 
-
 const otpVerifySchema = Joi.object({
   tempId: Joi.string().required(),
   otp: Joi.string().length(6).required(),
+  email: Joi.string().email().optional(),
 });
 
 const registrationOtpVerifySchema = Joi.object({
