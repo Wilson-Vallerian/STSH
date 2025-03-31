@@ -14,6 +14,7 @@ const agricultureRequestSchema = Joi.object({
 const payRequestSchema = Joi.object({
   userId: Joi.string().required(),
   password: Joi.string().required(),
+  approval: Joi.boolean().required(),
 });
 
 module.exports = { agricultureRequestSchema, payRequestSchema };
