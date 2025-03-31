@@ -27,10 +27,16 @@ const otpVerifySchema = Joi.object({
 const registrationOtpVerifySchema = Joi.object({
   tempId: Joi.string().required(),
   otp: Joi.string().length(6).required(),
-  name: Joi.string().min(2).required(),
+  name: Joi.string().min(2).max(50).required(),
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
   dateOfBirth: Joi.date().required(),
+  password: Joi.string().min(6).required(),
+  confirmPassword: Joi.any()
+    .valid(Joi.ref("password"))
+    .required()
+    .messages({
+      "any.only": "Confirm password does not match password",
+    }),
 });
 
 module.exports = { loginSchema, registerSchema, otpVerifySchema, registrationOtpVerifySchema };
