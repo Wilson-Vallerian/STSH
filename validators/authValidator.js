@@ -8,9 +8,16 @@ const loginSchema = Joi.object({
 const registerSchema = Joi.object({
   name: Joi.string().min(2).required(),
   email: Joi.string().email().required(),
-  dateOfBirth: Joi.string().required(),
+  dateOfBirth: Joi.date().required(),
   password: Joi.string().min(6).required(),
+  confirmPassword: Joi.any()
+    .valid(Joi.ref("password"))
+    .required()
+    .messages({
+      "any.only": "Confirm password does not match password",
+    }),
 });
+
 
 const otpVerifySchema = Joi.object({
   tempId: Joi.string().required(),
