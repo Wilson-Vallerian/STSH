@@ -46,6 +46,9 @@ const {
   updateNameSchema,
   updatePasswordSchema,
 } = require("./validators/userValidator");
+const { cloudinary, storage } = require("./utils/cloudinary");
+const upload = multer({ storage });
+const streamifier = require("streamifier");
 
 // Security
 app.use(mongoSanitize());
@@ -345,8 +348,7 @@ app.post("/verify-otp", loginLimiter, async (req, res) => {
   const qrCodeStoragePath = path.join(__dirname, "uploads", qrCodeFileName);
   fs.renameSync(qrCodePath, qrCodeStoragePath);
 
-  const qrCodeUrl = `${req.protocol}://${req.get("host")}/uploads/${qrCodeFileName}`;
-
+  const qrCodeUrl = await uploadQRCodeToCloudinary(user._id.toString(), `qr_${user._id}`);
   user.qrCodeUrl = qrCodeUrl;
   await user.save();
 
@@ -413,6 +415,21 @@ app.post("/verify-login-otp", loginLimiter, async (req, res) => {
     },
   });
 });
+
+const uploadQRCodeToCloudinary = async (text, filename) => {
+  const buffer = await QRCode.toBuffer(text);
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { public_id: filename, folder: "STSH_qrcodes" },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result.secure_url);
+      }
+    );
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+};
 
 // ==========================
 // Update User Details
@@ -523,7 +540,7 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
-const upload = multer({ storage, fileFilter });
+// const upload = multer({ storage, fileFilter });
 
 // Profile Picture Upload API
 app.put(
@@ -546,16 +563,15 @@ app.put(
           .json({ message: "User not found", status: "FAILED" });
       }
 
-      if (!req.file) {
+      if (!req.file || !req.file.path) {
         return res
           .status(400)
           .json({ message: "No file uploaded.", status: "FAILED" });
       }
 
-      // Construct the absolute file URL
-      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      // Use Cloudinary file URL
+      const fileUrl = req.file.path;
 
-      // Update the user's profile picture in the database
       user.photoUrl = fileUrl;
       await user.save();
 
