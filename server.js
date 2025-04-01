@@ -1093,6 +1093,7 @@ app.put("/loan/pay/:loanId", async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("🔥 Loan Payment Error:", error);
     return res.status(500).json({
       message: "Server error",
       status: "FAILED",
