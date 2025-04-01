@@ -1071,8 +1071,8 @@ app.put("/loan/pay/:loanId", async (req, res) => {
     const transaction = new Transaction({
       senderId: user._id,
       recipientId: user._id,
-      amount: parsedAmount,
-      method: "topup",
+      amount: paymentAmount,
+      method: "loan_payment",
       tax: 0,
     });
     await transaction.save();
