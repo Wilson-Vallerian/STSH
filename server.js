@@ -1068,17 +1068,17 @@ app.put("/loan/pay/:loanId", async (req, res) => {
       loan.amount = 0;
     }
 
-    await user.save();
-    await loan.save();
-
     const transaction = new Transaction({
-      senderId: userId,
-      recipientId: userId,
-      amount: paymentAmount,
-      method: "loan_payment",
-      tax: 0,
+      senderId: user.userId,
+      recipientId: user.userId,
+      amount: parsedAmount,
+      method: "topup",
+      tax,
     });
     await transaction.save();
+
+    await user.save();
+    await loan.save();
 
     return res.json({
       message: "Loan paid off successfully",
