@@ -613,14 +613,17 @@ app.post("/transfer", async (req, res) => {
     const sender = await User.findById(senderId);
     const recipient = await User.findById(recipientId);
 
-    if (!sender)
+    if (!sender) {
       return res
         .status(404)
         .json({ message: "Sender not found", status: "FAILED" });
-    if (!recipient)
+    }
+
+    if (!recipient) {
       return res
         .status(404)
         .json({ message: "Recipient not found", status: "FAILED" });
+    }
 
     const isMatch = await bcrypt.compare(password, sender.password);
     if (!isMatch) {
@@ -644,15 +647,15 @@ app.post("/transfer", async (req, res) => {
     await sender.save();
     await recipient.save();
 
-    // Store transaction
-    const transaction = new Transaction({ senderId, recipientId, amount });
+    const transaction = new Transaction({
+      senderId,
+      recipientId,
+      amount,
+      tax,
+      method: "transfer",
+    });
     await transaction.save();
 
-    // Update users with transaction history
-    sender.transactions.push(transaction._id);
-    recipient.transactions.push(transaction._id);
-
-    // Store tax collection record
     const taxRecord = new CollectedTax({
       userId: sender._id,
       email: sender.email,
@@ -669,6 +672,7 @@ app.post("/transfer", async (req, res) => {
       status: "SUCCESS",
     });
   } catch (error) {
+    console.error("Transfer error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
@@ -951,6 +955,15 @@ app.put("/loan/approve/:loanId", async (req, res) => {
 
     user.stshToken += netAmount;
     await user.save();
+
+    const loanTransaction = new Transaction({
+      senderId: user._id,
+      recipientId: user._id,
+      amount: netAmount,
+      method: "loan",
+      tax: tax,
+    });
+    await loanTransaction.save();
 
     const taxRecord = new CollectedTax({
       userId: user._id,
@@ -1507,8 +1520,16 @@ app.put("/requests/:requestId/pay", async (req, res) => {
     }
 
     user.stshToken -= request.totalPrice;
-
     request.approval = true;
+
+    const requestTransaction = new Transaction({
+      senderId: user._id,
+      recipientId: user._id,
+      amount: request.totalPrice,
+      method: "request",
+      tax: 0,
+    });
+    await requestTransaction.save();
 
     await user.save();
     await request.save();
@@ -1576,6 +1597,15 @@ app.post("/subscribe", async (req, res) => {
 
     user.stshToken -= totalCost;
     await user.save();
+
+    const insuranceTransaction = new Transaction({
+      senderId: userId,
+      recipientId: userId,
+      amount: price,
+      method: "insurance",
+      tax: tax,
+    });
+    await insuranceTransaction.save();
 
     // Save tax
     await new CollectedTax({
@@ -1828,14 +1858,14 @@ app.post("/topup", async (req, res) => {
     }
 
     const { userId, amount, password } = req.body;
-
     const parsedAmount = parseInt(amount);
 
     const user = await User.findById(userId);
-    if (!user)
+    if (!user) {
       return res
         .status(404)
         .json({ message: "User not found", status: "FAILED" });
+    }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
@@ -1844,6 +1874,7 @@ app.post("/topup", async (req, res) => {
         .json({ message: "Incorrect password", status: "FAILED" });
     }
 
+    const tax = 0;
     user.stshToken += parsedAmount;
     await user.save();
 
@@ -1851,7 +1882,8 @@ app.post("/topup", async (req, res) => {
       senderId: userId,
       recipientId: userId,
       amount: parsedAmount,
-      type: "topup",
+      method: "topup",
+      tax,
     });
     await transaction.save();
 
@@ -1871,3 +1903,4 @@ app.post("/topup", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
