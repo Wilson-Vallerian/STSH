@@ -1071,6 +1071,15 @@ app.put("/loan/pay/:loanId", async (req, res) => {
     await user.save();
     await loan.save();
 
+    const transaction = new Transaction({
+      senderId: userId,
+      recipientId: userId,
+      amount: paymentAmount,
+      method: "loan_payment",
+      tax: 0,
+    });
+    await transaction.save();
+
     return res.json({
       message: "Loan paid off successfully",
       status: "SUCCESS",
